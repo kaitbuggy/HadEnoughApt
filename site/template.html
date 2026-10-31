@@ -1,0 +1,690 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Had Enough</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#F6F4EE;--surface:#FCFBF8;--subtle:#EEEBE3;--ink:#1F1E1B;--muted:#66635B;--line:#E2DED4;--control:#858177;
+  --accent:#9A472E;--accentSoft:#F4E4DB;--okBg:#E2EEE5;--okFg:#2D6646;--offBg:#ECE9E2;--offFg:#5C5952;
+  --serif:Newsreader,Georgia,serif;--sans:Geist,system-ui,-apple-system,sans-serif;--mono:'Geist Mono',ui-monospace,monospace;
+  color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --bg:#1B1A18;--surface:#24231F;--subtle:#2C2B27;--ink:#EEECE6;--muted:#A6A297;--line:#3A3832;--control:#7A766C;
+  --accent:#E39575;--accentSoft:#3B2A22;--okBg:#1E3326;--okFg:#93D0AA;--offBg:#2F2E2A;--offFg:#B8B4AA;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+a:hover{opacity:.85}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.wrap{max-width:1240px;margin:0 auto;padding:0 32px}
+h1,h2,h3{font-family:var(--serif);font-weight:400;margin:0;letter-spacing:-.01em}
+.muted{color:var(--muted)}
+.mono{font-family:var(--mono)}
+.small{font-size:13px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* header */
+header.top{border-bottom:1px solid var(--line);background:var(--bg);position:sticky;top:0;z-index:10}
+header.top .wrap{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;padding-top:14px;padding-bottom:14px}
+.logo{display:inline-flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink)}
+.logo svg{position:relative;top:-2px;flex-shrink:0}
+.logo span{font-family:var(--serif);font-size:24px;line-height:26px;font-weight:500;letter-spacing:-.01em}
+nav.main,nav.util{display:flex;gap:4px;align-items:center}
+nav.util{margin-left:auto}
+.navlink{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 14px;border-radius:999px;text-decoration:none;color:var(--ink);font-weight:500}
+.navlink[aria-current]{background:var(--subtle)}
+.badge{font-family:var(--mono);font-size:12px;background:var(--accentSoft);color:var(--accent);padding:1px 8px;border-radius:999px}
+.newflag{font-size:12px;font-weight:500;color:var(--accent)}
+.iconbtn{display:inline-grid;place-items:center;width:44px;height:44px;border-radius:999px;border:1px solid var(--line);background:var(--surface);cursor:pointer}
+.search{position:relative;flex:1 1 240px;max-width:400px}
+.search input{width:100%;height:42px;padding:0 16px;border:1px solid var(--control);border-radius:999px;font:inherit;background:var(--surface);color:var(--ink)}
+.results{position:absolute;left:0;right:0;top:48px;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 18px 50px rgba(20,18,14,.16);padding:6px;max-height:60vh;overflow:auto;z-index:20}
+.results a{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;border-radius:10px;text-decoration:none}
+.results a:hover,.results a[aria-selected="true"]{background:var(--subtle);opacity:1}
+.results .empty{padding:10px 12px;color:var(--muted)}
+
+main{padding:40px 0 96px}
+.stack{display:flex;flex-direction:column}
+.crumbs{font-size:13px;color:var(--muted);margin-bottom:10px}
+.crumbs a{color:var(--muted)}
+.status{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--okFg);display:inline-block}
+.display{font-size:56px;line-height:1.02;letter-spacing:-.02em}
+.lede{font-size:18px;color:var(--muted);max-width:60ch;margin:10px 0 0}
+
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:28px 0}
+.stats>div{padding:18px 0 18px 24px;border-left:1px solid var(--line)}
+.stats>div:first-child{padding-left:0;border-left:0}
+.stat{font-family:var(--serif);font-size:34px;line-height:1.1}
+.stats.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+
+.pill{font-size:12px;font-weight:500;padding:2px 10px;border-radius:999px;white-space:nowrap;display:inline-block}
+.pill.ok{background:var(--okBg);color:var(--okFg)}
+.pill.off{background:var(--offBg);color:var(--offFg)}
+.pill.acc{background:var(--accentSoft);color:var(--accent)}
+
+.filters{display:flex;flex-wrap:wrap;gap:16px 28px;align-items:flex-end;margin-bottom:22px}
+.fgroup{display:flex;flex-direction:column;gap:6px}
+.flabel{font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);cursor:pointer;font-size:14px}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+select{height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--control);background:var(--surface);color:var(--ink);font:inherit;font-size:14px}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 18px;border-radius:999px;font-weight:500;text-decoration:none;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink);white-space:nowrap}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.watching{color:var(--accent)}
+.btn.sm{height:36px;padding:0 14px;font-size:14px}
+
+/* feed */
+.feed{display:flex;flex-direction:column;gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px}
+.feeditem{display:grid;grid-template-columns:96px minmax(0,1fr) auto;gap:22px;align-items:center;padding:16px 20px}
+.thumb{width:96px;height:72px;border-radius:10px;background:var(--subtle);display:grid;place-items:center;overflow:hidden}
+.thumb img{width:100%;height:100%;object-fit:contain;background:#fff}
+.thumb .ph{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.ftitle{font-family:var(--serif);font-size:22px;text-decoration:none;line-height:1.2}
+.fright{display:flex;align-items:center;gap:18px}
+.rent{font-family:var(--serif);font-size:24px;line-height:1.1;text-align:right}
+
+/* buildings + plans grid */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+.tile{display:flex;flex-direction:column;text-decoration:none;color:var(--ink);overflow:hidden}
+.tile .img{aspect-ratio:4/3;background:#fff;border-bottom:1px solid var(--line);display:grid;place-items:center;overflow:hidden}
+:root[data-theme="dark"] .tile .img{background:#EDEAE3}
+.tile .img img{width:100%;height:100%;object-fit:contain;padding:10px}
+.tile .img .ph{font-family:var(--mono);font-size:12px;color:#66635B}
+.tile .body{padding:16px 18px;display:flex;flex-direction:column;gap:4px}
+.tile .name{font-family:var(--serif);font-size:22px;line-height:1.2}
+.bcard{padding:22px;display:flex;flex-direction:column;gap:10px;text-decoration:none}
+
+/* plan page */
+.split{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:40px;align-items:start}
+.planimg{background:#fff;border:1px solid var(--line);border-radius:20px;padding:20px;display:grid;place-items:center;min-height:320px}
+:root[data-theme="dark"] .planimg{background:#EDEAE3}
+.planimg img{max-width:100%;max-height:520px;object-fit:contain}
+.planimg .ph{font-family:var(--mono);font-size:13px;color:#66635B}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-weight:500;color:var(--muted);font-size:13px;padding:10px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr:last-child td{border-bottom:0}
+.tablecard{overflow:hidden}
+.unitbtn{display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:0 10px 0 8px;margin-left:-8px;border:0;border-radius:8px;background:none;font-weight:600;cursor:pointer}
+.unitbtn svg{transition:transform .15s}
+.unitbtn[aria-expanded="true"] svg{transform:rotate(90deg)}
+.star{width:44px;height:44px;border:0;background:none;font-size:20px;cursor:pointer;color:var(--muted)}
+.star[aria-pressed="true"]{color:var(--accent)}
+.detail td{background:var(--subtle)}
+.detailgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px;padding:10px 4px}
+.dlabel{font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+
+.bars{display:flex;flex-direction:column;gap:7px}
+.bar{display:grid;grid-template-columns:52px minmax(0,1fr) 64px;gap:12px;align-items:center;font-family:var(--mono);font-size:13px}
+.track{height:10px;background:var(--line);border-radius:999px;overflow:hidden}
+.fill{height:100%;background:var(--control);border-radius:999px}
+.fill.best{background:var(--accent)}
+.bar .best{color:var(--accent);font-weight:600}
+
+/* unit page */
+.unitgrid{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:32px;align-items:start}
+.panel{padding:26px 28px;display:flex;flex-direction:column;gap:16px}
+.soft{background:var(--accentSoft);border-radius:20px;padding:24px;display:flex;flex-direction:column;gap:8px}
+.hist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px}
+.hist li{display:grid;grid-template-columns:14px minmax(0,1fr);gap:12px}
+.hist .d{width:9px;height:9px;margin-top:7px;border-radius:50%;background:var(--muted)}
+.hist .d.now{background:var(--okFg)}
+.hist .d.none{background:none;border:1.5px solid var(--muted)}
+
+/* watchlist */
+.events{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.events li{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:16px;align-items:start;padding:18px 4px;border-bottom:1px solid var(--line)}
+.udot{width:8px;height:8px;margin-top:8px;border-radius:50%}
+.udot.on{background:var(--accent)}
+.kind{font-size:12px;font-weight:500;letter-spacing:.04em}
+.etitle{font-family:var(--serif);font-size:21px;text-decoration:none}
+.wcards{display:flex;flex-direction:column;gap:12px}
+.wcard{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:16px 18px;align-items:start}
+.wcard a{text-decoration:none}
+.note{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 20px}
+.emptybox{border:1px dashed var(--control);border-radius:20px;padding:36px;text-align:center;display:flex;flex-direction:column;gap:10px;align-items:center}
+
+footer{border-top:1px solid var(--line);padding:24px 0 40px;color:var(--muted);font-size:13px}
+
+@media (max-width:860px){
+  .split,.unitgrid{grid-template-columns:1fr}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .stats>div:nth-child(3){padding-left:0;border-left:0}
+  .stats>div:nth-child(n+3){border-top:1px solid var(--line)}
+  .detailgrid{grid-template-columns:1fr}
+}
+@media (max-width:640px){
+  .stats.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .stats.three>div{padding-left:12px}
+  .stats.three>div:first-child{padding-left:0}
+  .stats.three>div:nth-child(3){border-left:1px solid var(--line);border-top:0;padding-left:12px}
+  .stats.three .stat{font-size:24px}
+  .stats .stat{font-size:28px}
+  .wrap{padding:0 16px}
+  .display{font-size:40px}
+  header.top .wrap{gap:10px}
+  nav.main{order:3}
+  .search{order:4;flex-basis:100%;max-width:none}
+  .navlink{padding:0 10px}
+  .feeditem{grid-template-columns:72px minmax(0,1fr);gap:14px}
+  .thumb{width:72px;height:56px}
+  .fright{grid-column:1/-1;justify-content:space-between}
+  .rent{text-align:left}
+  /* unit table becomes stacked rows */
+  table.units thead{display:none}
+  table.units tr.row{display:grid;grid-template-columns:1fr auto;padding:8px 6px;border-bottom:1px solid var(--line)}
+  table.units tr.row td{border:0;padding:4px 8px}
+  table.units tr.row td[data-l]::before{content:attr(data-l) " · ";color:var(--muted)}
+  table.units tr.row td.c-unit{grid-column:1}
+  table.units tr.row td.c-watch{grid-column:2;grid-row:1}
+  table.units tr.detail{display:block}
+  table.units tr.detail td{display:block}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="logo" href="#/" aria-label="Had Enough, home">
+      <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true"><rect x="1.5" y="1.5" width="23" height="23" rx="6" stroke="var(--accent)" stroke-width="1.6"/><path d="M8 7v12M18 7v12M8 13h10" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <span>Had Enough</span>
+    </a>
+    <nav class="main" aria-label="Main">
+      <a class="navlink" href="#/" data-nav="home">Just listed</a>
+      <a class="navlink" href="#/buildings" data-nav="buildings">Buildings</a>
+    </nav>
+    <div class="search" role="search">
+      <label for="q" class="sr">Search buildings, floor plans and units</label>
+      <input id="q" type="search" placeholder="Search buildings, plans, units" autocomplete="off" aria-controls="qres" aria-expanded="false">
+      <div id="qres" class="results" role="listbox" hidden></div>
+    </div>
+    <nav class="util" aria-label="Account">
+      <a class="navlink" href="#/watchlist" data-nav="watchlist">Watchlist <span class="badge" id="wcount">0</span><span class="newflag" id="wnew"></span></a>
+      <button class="iconbtn" id="theme" type="button" aria-label="Switch to dark mode"></button>
+    </nav>
+  </div>
+</header>
+<main><div class="wrap" id="app"></div></main>
+<footer><div class="wrap" id="foot"></div></footer>
+
+<script id="site-data" type="application/json">__SITE_DATA__</script>
+<script>
+(() => {
+'use strict';
+const DATA = JSON.parse(document.getElementById('site-data').textContent);
+// Postgres bigints arrive as strings; dates as timestamps. Normalize once.
+for (const rows of Object.values(DATA)) if (Array.isArray(rows)) for (const r of rows) {
+  for (const k of Object.keys(r)) if ((k === 'id' || k.endsWith('_id')) && r[k] != null && k !== 'external_id') r[k] = Number(r[k]);
+  if (r.available_on) r.available_on = String(r.available_on).slice(0, 10);
+}
+const app = document.getElementById('app');
+const TZ = 'America/Chicago';
+
+// ---------- storage (per browser, best effort) ----------
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('he.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('he.' + k, JSON.stringify(v)); } catch { /* private mode */ } },
+};
+
+// ---------- theme ----------
+const themeBtn = document.getElementById('theme');
+const SUN = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+const MOON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t;
+  themeBtn.innerHTML = t === 'dark' ? SUN : MOON;
+  themeBtn.setAttribute('aria-label', t === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+}
+applyTheme(store.get('theme', 'light'));
+themeBtn.onclick = () => { const t = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; store.set('theme', t); applyTheme(t); };
+
+// ---------- helpers ----------
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const money = (n) => n == null ? '—' : '$' + Math.round(n).toLocaleString('en-US');
+const fmtDate = (d, o = { month: 'short', day: 'numeric', year: 'numeric' }) => d ? new Date(d).toLocaleDateString('en-US', { timeZone: TZ, ...o }) : '—';
+const fmtDay = (d) => d ? new Date(d + (String(d).length === 10 ? 'T12:00:00' : '')).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : null;
+const todayISO = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
+const moveIn = (d) => !d ? null : d <= todayISO ? 'move in now' : 'move in ' + fmtDay(d);
+const fmtTime = (d) => new Date(d).toLocaleTimeString('en-US', { timeZone: TZ, hour: 'numeric', minute: '2-digit' }).toLowerCase();
+const DAY = 864e5;
+const now = Date.now();
+function ago(d) {
+  const ms = now - new Date(d).getTime();
+  if (ms < 3600e3) return Math.max(1, Math.round(ms / 60e3)) + ' min ago';
+  if (ms < DAY) return Math.round(ms / 3600e3) + ' hr ago';
+  const days = Math.round(ms / DAY);
+  return days === 1 ? 'Yesterday' : days < 14 ? days + ' days ago' : fmtDate(d);
+}
+const addMonths = (d, m) => { const x = new Date(d); x.setMonth(x.getMonth() + m); return x; };
+const monthYear = (d) => d.toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: TZ });
+const bedLabel = (b) => b == null ? '' : b === 0 ? 'Studio' : (b % 1 ? b : b) + ' bed';
+const bathLabel = (b) => b == null ? '' : b + ' bath';
+const sqftLabel = (a, b) => a == null ? '' : (b && b !== a ? a + '–' + b : a) + ' sq ft';
+const join = (...xs) => xs.filter(Boolean).join(' · ');
+
+// ---------- index the data ----------
+const B = new Map(DATA.buildings.map((b) => [b.id, b]));
+const P = new Map(DATA.floorPlans.map((p) => [p.id, p]));
+const U = new Map(DATA.units.map((u) => [u.id, u]));
+const LU = new Map(DATA.latestUnit.map((r) => [r.unit_id, r]));
+const LP = new Map(DATA.latestPlan.map((r) => [r.floor_plan_id, r]));
+const RUN = new Map(DATA.lastRuns.map((r) => [r.building_id, r]));
+const winU = new Map(), winP = new Map();
+for (const w of DATA.windows) {
+  const m = w.unit_id ? winU : winP, k = w.unit_id ?? w.floor_plan_id;
+  if (!m.has(k)) m.set(k, []);
+  m.get(k).push(w);
+}
+const openWin = (list) => (list || []).find((w) => !w.closed_at);
+const unitOpen = (u) => openWin(winU.get(u.id));
+const unitsOfPlan = (pid) => DATA.units.filter((u) => u.floor_plan_id === pid);
+const plansOfBuilding = (bid) => DATA.floorPlans.filter((p) => p.building_id === bid);
+const unitsOfBuilding = (bid) => DATA.units.filter((u) => u.building_id === bid);
+const floorsOf = (bid) => Math.max(0, ...unitsOfBuilding(bid).map((u) => u.floor || 0)) || null;
+const siteLink = (b) => b.availability_url && !b.availability_url.includes('sightmap.com') ? b.availability_url : b.website_url;
+const unitName = (u) => u.unit_number ? 'Unit ' + u.unit_number : 'Unit (number not shown yet)';
+function unitRent(u) {
+  const l = LU.get(u.id); if (!l) return null;
+  const lp = l.lease_prices && Object.entries(l.lease_prices).map(([m, v]) => [Number(m), Number(v)]).filter(([, v]) => v > 0);
+  if (lp && lp.length) { const best = lp.reduce((a, b) => (b[1] < a[1] ? b : a)); return { rent: best[1], months: best[0], all: lp.sort((a, b) => a[0] - b[0]), on: l.available_on }; }
+  return { rent: l.base_rent ?? l.price_from, months: l.lease_months, all: null, on: l.available_on };
+}
+function planAvail(p) {
+  const units = unitsOfPlan(p.id).filter(unitOpen);
+  const lp = LP.get(p.id);
+  const planOpen = openWin(winP.get(p.id));
+  const count = units.length || (planOpen ? (lp?.available_count ?? 1) : 0);
+  const rents = units.map((u) => unitRent(u)?.rent).filter(Boolean);
+  const from = rents.length ? Math.min(...rents) : (planOpen ? (lp?.base_rent ?? lp?.price_from) : null);
+  return { count, from, units };
+}
+const trackStart = DATA.windows.map((w) => w.opened_at).sort()[0] || DATA.exportedAt;
+const atStart = (d) => Math.abs(new Date(d) - new Date(trackStart)) < 3600e3; // listed when tracking began
+const listedLabel = (d) => atStart(d) ? 'On the market when tracking began ' + fmtDate(trackStart, { month: 'short', day: 'numeric' }) : 'Listed ' + ago(d).replace(/^Yesterday$/, 'yesterday');
+const lastChecked = DATA.lastRuns.map((r) => r.finished_at || r.started_at).filter(Boolean).sort().pop() || DATA.exportedAt;
+function nextCheck() {
+  const t = new Date(); const c = [];
+  for (let d = 0; d < 2; d++) for (const h of [1, 13]) { const x = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate() + d, h, 23)); if (x > t) c.push(x); }
+  return c.sort((a, b) => a - b)[0];
+}
+
+// ---------- watchlist ----------
+let W = store.get('watch', { unit: {}, plan: {}, building: {} });
+for (const k of ['unit', 'plan', 'building']) W[k] = W[k] || {};
+const watching = (kind, id) => !!W[kind][id];
+function toggleWatch(kind, id) {
+  if (W[kind][id]) delete W[kind][id]; else W[kind][id] = Date.now();
+  store.set('watch', W); updateHeader();
+}
+function watchEvents() {
+  const ev = [];
+  const push = (e) => ev.push(e);
+  const unitIds = new Set(Object.keys(W.unit).map(Number));
+  for (const pid of Object.keys(W.plan).map(Number)) unitsOfPlan(pid).forEach((u) => unitIds.add(u.id));
+  for (const bid of Object.keys(W.building).map(Number)) unitsOfBuilding(bid).forEach((u) => unitIds.add(u.id));
+  for (const id of unitIds) {
+    const u = U.get(id); if (!u) continue;
+    for (const w of winU.get(id) || []) {
+      push({ at: w.opened_at, kind: 'NOW AVAILABLE', color: 'var(--accent)', u, detail: join(unitRent(u) && !w.closed_at ? money(unitRent(u).rent) + ' on ' + unitRent(u).months + ' months' : null, u.floor ? 'Floor ' + u.floor : null) });
+      if (w.closed_at) push({ at: w.closed_at, kind: 'LEASED', color: 'var(--muted)', u, detail: 'Listed ' + Math.max(1, Math.round((new Date(w.closed_at) - new Date(w.opened_at)) / DAY)) + ' days' + (w.min_rent_seen ? ', lowest ' + money(w.min_rent_seen) : '') });
+      if (w.max_rent_seen && w.min_rent_seen && w.min_rent_seen < w.max_rent_seen && !w.closed_at) push({ at: LU.get(id)?.observed_at || w.opened_at, kind: 'PRICE DROP', color: 'var(--okFg)', u, detail: money(w.max_rent_seen) + ' → ' + money(w.min_rent_seen) });
+    }
+  }
+  return ev.sort((a, b) => new Date(b.at) - new Date(a.at)).slice(0, 40);
+}
+const seenAt = () => store.get('seen', 0);
+function updateHeader() {
+  const n = Object.keys(W.unit).length + Object.keys(W.plan).length + Object.keys(W.building).length;
+  document.getElementById('wcount').textContent = n;
+  const fresh = watchEvents().filter((e) => new Date(e.at).getTime() > seenAt()).length;
+  document.getElementById('wnew').textContent = fresh ? '· ' + fresh + ' new' : '';
+}
+function watchBtn(kind, id, label) {
+  const on = watching(kind, id);
+  return `<button type="button" class="btn ${on ? 'watching' : 'primary'}" data-watch="${kind}:${id}" aria-pressed="${on}" ${label ? `aria-label="${esc((on ? 'Stop watching ' : 'Watch ') + label)}"` : ''}>${on ? '★ Watching' : '☆ Watch'}</button>`;
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-watch]');
+  if (b) { const [k, id] = b.dataset.watch.split(':'); toggleWatch(k, Number(id)); render(); return; }
+  const x = e.target.closest('[data-expand]');
+  if (x) { const id = x.dataset.expand; expanded.has(id) ? expanded.delete(id) : expanded.add(id); render(); }
+});
+const expanded = new Set();
+
+// ---------- pieces ----------
+function planImg(p, cls = 'thumb') {
+  return p?.image_url
+    ? `<img src="${esc(p.image_url)}" alt="${esc(p.name)} floor plan" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph',textContent:'Plan image unavailable'}))">`
+    : `<span class="ph">No plan image</span>`;
+}
+function barsFor(all) {
+  if (!all || !all.length) return '<p class="muted small" style="margin:0">Only one price is listed.</p>';
+  const max = Math.max(...all.map((x) => x[1])), best = Math.min(...all.map((x) => x[1]));
+  return '<div class="bars">' + all.map(([m, v]) => `<div class="bar"><span class="muted">${m} mo</span><div class="track"><div class="fill ${v === best ? 'best' : ''}" style="width:${(v / max * 100).toFixed(1)}%"></div></div><span style="text-align:right" class="${v === best ? 'best' : ''}">${money(v)}</span></div>`).join('') + '</div>';
+}
+function comeBack(u) {
+  const ws = winU.get(u.id) || [];
+  const open = openWin(ws);
+  if (open) {
+    const a = addMonths(now, 12), b = addMonths(now, 15);
+    return `If it leases soon on a 12–15 month lease, expect it back around <strong>${monthYear(a)} – ${monthYear(b)}</strong>.`;
+  }
+  const last = ws.filter((w) => w.closed_at).pop();
+  if (last) return `It leased ${fmtDate(last.closed_at)}. On a 12–15 month lease, expect it back around <strong>${monthYear(addMonths(last.closed_at, 11))} – ${monthYear(addMonths(last.closed_at, 15))}</strong>.`;
+  return `We haven't seen it listed yet. Watch it and your Watchlist shows the day it appears.`;
+}
+function buildingStatus(b) {
+  const r = RUN.get(b.id);
+  if (!r) return { ok: false, text: b.platform === 'unknown' || !b.platform ? "Not tracked yet: we haven't connected this building's site" : "Not tracked yet: this building's site needs its own reader" };
+  if (r.status === 'ok') return { ok: true, text: 'Checked ' + ago(r.finished_at || r.started_at) };
+  if (r.status === 'changed_layout') return { ok: false, text: "The building's site changed, so the last check didn't read it. Earlier data is still shown." };
+  return { ok: false, text: 'The last check failed. Earlier data is still shown.' };
+}
+
+// ---------- pages ----------
+const filt = store.get('filters', { b: 'all', beds: 'any', max: 'any', sort: 'new' });
+function setFilt(k, v) { filt[k] = v; store.set('filters', filt); render(); }
+
+function pageHome() {
+  const avail = DATA.units.filter(unitOpen);
+  const recent = avail.filter((u) => !atStart(unitOpen(u).opened_at) && now - new Date(unitOpen(u).opened_at) < DAY).length;
+  const young = now - new Date(trackStart) < 14 * DAY;
+  const tracked = DATA.buildings.filter((b) => RUN.has(b.id));
+  const closed = DATA.windows.filter((w) => w.unit_id && w.closed_at);
+  const med = closed.length ? (() => { const d = closed.map((w) => (new Date(w.closed_at) - new Date(w.opened_at)) / DAY).sort((a, b) => a - b); return Math.round(d[Math.floor(d.length / 2)]) + ' days'; })() : 'Not yet';
+  let list = avail.map((u) => ({ u, w: unitOpen(u), r: unitRent(u), p: P.get(u.floor_plan_id) }));
+  if (filt.b !== 'all') list = list.filter((x) => String(x.u.building_id) === filt.b);
+  if (filt.beds !== 'any') list = list.filter((x) => x.p && (filt.beds === '2' ? x.p.beds >= 2 : String(x.p.beds) === filt.beds));
+  if (filt.max !== 'any') list = list.filter((x) => x.r?.rent && x.r.rent <= Number(filt.max));
+  list.sort(filt.sort === 'low' ? (a, b) => (a.r?.rent ?? 1e9) - (b.r?.rent ?? 1e9) : filt.sort === 'soon' ? (a, b) => String(a.r?.on || '9').localeCompare(String(b.r?.on || '9')) : (a, b) => new Date(b.w.opened_at) - new Date(a.w.opened_at) || (a.r?.rent ?? 0) - (b.r?.rent ?? 0));
+  const shown = list.slice(0, feedLimit);
+  const chip = (k, v, label) => `<button type="button" class="chip" aria-pressed="${filt[k] === v}" data-f="${k}:${v}">${esc(label)}</button>`;
+  return `
+  <section>
+    <span class="status"><span class="dot"></span>Checked ${fmtTime(lastChecked)} · next check ${fmtTime(nextCheck())}</span>
+    <h1 class="display" style="margin-top:10px">Just listed</h1>
+    <p class="lede">New openings in the Austin buildings we track. Watch a unit to hear when it changes or comes back.</p>
+  </section>
+  <section class="stats" aria-label="Market pulse">
+    <div><div class="stat">${tracked.length}</div><div class="small muted">buildings tracked</div></div>
+    <div><div class="stat">${avail.length}</div><div class="small muted">units available now</div></div>
+    <div><div class="stat" style="color:var(--accent)">${recent}</div><div class="small muted">newly listed today</div></div>
+    <div><div class="stat">${young ? esc(fmtDate(trackStart, { month: 'short', day: 'numeric' })) : med}</div><div class="small muted">${young ? 'tracking began; lease timing builds from here' : 'median time before a unit is leased'}</div></div>
+  </section>
+  <section class="filters" aria-label="Filters">
+    <div class="fgroup"><span class="flabel" id="fb">Building</span><div class="chips" role="group" aria-labelledby="fb">${chip('b', 'all', 'All')}${tracked.map((b) => chip('b', String(b.id), b.name)).join('')}</div></div>
+    <div class="fgroup"><span class="flabel" id="fbd">Bedrooms</span><div class="chips" role="group" aria-labelledby="fbd">${chip('beds', 'any', 'Any')}${chip('beds', '0', 'Studio')}${chip('beds', '1', '1')}${chip('beds', '2', '2+')}</div></div>
+    <div class="fgroup"><label class="flabel" for="fmax">Max rent</label><select id="fmax" data-fsel="max">${['any', '1500', '2000', '2500', '3000', '4000'].map((v) => `<option value="${v}" ${filt.max === v ? 'selected' : ''}>${v === 'any' ? 'Any' : money(Number(v))}</option>`).join('')}</select></div>
+    <div class="fgroup"><span class="flabel" id="fs">Sort</span><div class="chips" role="group" aria-labelledby="fs">${chip('sort', 'new', 'Newest')}${chip('sort', 'low', 'Lowest rent')}${chip('sort', 'soon', 'Soonest move-in')}</div></div>
+  </section>
+  <section aria-labelledby="feedh" class="stack" style="gap:14px">
+    <h2 id="feedh" style="font-size:28px">${list.length} ${list.length === 1 ? 'opening' : 'openings'}</h2>
+    ${list.length ? '' : `<div class="emptybox"><strong>Nothing matches these filters.</strong><span class="muted">Try a higher max rent or another building.</span><button type="button" class="btn sm" data-f="reset:1">Clear filters</button></div>`}
+    <div class="feed">${shown.map(({ u, w, r, p }) => {
+      const b = B.get(u.building_id);
+      return `<article class="card feeditem">
+        <div class="thumb">${planImg(p)}</div>
+        <div class="stack" style="gap:2px;min-width:0">
+          <div class="small muted">${esc(listedLabel(w.opened_at))}${u.is_top_floor ? ' · <span class="pill acc">Top floor</span>' : ''}</div>
+          <a class="ftitle" href="#/unit/${u.id}">${esc(unitName(u))} · ${esc(p?.name || 'Floor plan')}</a>
+          <span class="small muted">${esc(join(b?.name, p && bedLabel(p.beds), p && bathLabel(p.baths), (u.sqft || p?.sqft_min) && (u.sqft || p.sqft_min) + ' sq ft', u.floor && 'floor ' + u.floor))}</span>
+        </div>
+        <div class="fright">
+          <div><div class="rent">${money(r?.rent)}</div><div class="small muted" style="text-align:right">${esc(join(r?.months && r.months + ' mo', r?.on && moveIn(r.on)))}</div></div>
+          ${watchBtn('unit', u.id, unitName(u))}
+        </div>
+      </article>`;
+    }).join('')}</div>
+    ${list.length > shown.length ? `<button type="button" class="btn" id="more" style="align-self:center">Show ${Math.min(20, list.length - shown.length)} more</button>` : ''}
+  </section>`;
+}
+let feedLimit = 20;
+
+function pageBuildings() {
+  return `
+  <h1 class="display">Buildings</h1>
+  <p class="lede">Every building we follow. We check each one twice a day and remember every unit we see.</p>
+  <div class="grid" style="margin-top:28px">${DATA.buildings.map((b) => {
+    const st = buildingStatus(b);
+    const plans = plansOfBuilding(b.id), units = unitsOfBuilding(b.id), av = units.filter(unitOpen).length;
+    return `<a class="card bcard" href="#/building/${b.id}">
+      <span class="pill ${st.ok ? 'ok' : 'off'}" style="align-self:flex-start">${st.ok ? av + ' available' : 'Not tracked yet'}</span>
+      <span class="tile name" style="font-family:var(--serif);font-size:24px">${esc(b.name)}</span>
+      <span class="small muted">${esc(b.address || b.city)}</span>
+      <span class="small muted">${st.ok ? esc(join(plans.length + ' floor plans', units.length + ' units seen')) : esc(st.text)}</span>
+    </a>`;
+  }).join('')}</div>`;
+}
+
+const bFilt = { beds: 'any', avail: false };
+function pageBuilding(id) {
+  const b = B.get(id); if (!b) return notFound();
+  const st = buildingStatus(b);
+  let plans = plansOfBuilding(id).map((p) => ({ p, a: planAvail(p) }));
+  const units = unitsOfBuilding(id), av = units.filter(unitOpen).length;
+  const unlisted = plans.filter((x) => !x.a.count).length;
+  if (bFilt.beds !== 'any') plans = plans.filter(({ p }) => bFilt.beds === '2' ? p.beds >= 2 : String(p.beds) === bFilt.beds);
+  if (bFilt.avail) plans = plans.filter(({ a }) => a.count);
+  plans.sort((x, y) => (y.a.count > 0) - (x.a.count > 0) || (x.p.beds ?? 0) - (y.p.beds ?? 0) || (x.a.from ?? 1e9) - (y.a.from ?? 1e9));
+  const chip = (k, v, label) => `<button type="button" class="chip" aria-pressed="${bFilt[k] === v}" data-bf="${k}:${v}">${esc(label)}</button>`;
+  return `
+  <div class="crumbs"><a href="#/buildings">Buildings</a> · ${esc(b.city)}</div>
+  <div style="display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:flex-end">
+    <div class="stack" style="gap:8px"><h1 class="display">${esc(b.name)}</h1><span class="muted">${esc(b.address || '')}</span></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">${b.website_url ? `<a class="btn" href="${esc(b.website_url)}" target="_blank" rel="noopener">Visit website ↗</a>` : ''}${watchBtn('building', b.id, b.name)}</div>
+  </div>
+  ${st.ok ? `
+  <section class="stats" aria-label="Building summary">
+    <div><div class="stat">${units.length}</div><div class="small muted">units seen so far</div></div>
+    <div><div class="stat">${av}</div><div class="small muted">available now</div></div>
+    <div><div class="stat">${plansOfBuilding(id).length}</div><div class="small muted">floor plans, ${unlisted} not listed now</div></div>
+    <div><div class="stat">${fmtTime(RUN.get(id).finished_at || RUN.get(id).started_at)}</div><div class="small muted">last checked, twice daily</div></div>
+  </section>
+  <section class="filters" aria-label="Filters">
+    <div class="chips" role="group" aria-label="Bedrooms">${chip('beds', 'any', 'All plans')}${chip('beds', '0', 'Studio')}${chip('beds', '1', '1 bed')}${chip('beds', '2', '2+ beds')}</div>
+    <div class="chips"><button type="button" class="chip" aria-pressed="${bFilt.avail}" data-bf="avail:toggle">Available now</button></div>
+  </section>
+  ${plans.length ? '' : `<div class="emptybox"><strong>No floor plans match.</strong><button type="button" class="btn sm" data-bf="reset:1">Show all plans</button></div>`}
+  <div class="grid">${plans.map(({ p, a }) => `<a class="card tile" href="#/plan/${p.id}">
+      <div class="img">${planImg(p)}</div>
+      <div class="body">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><span class="name">${esc(p.name)}</span><span class="pill ${a.count ? 'ok' : 'off'}">${a.count ? a.count + ' available' : 'Not listed'}</span></div>
+        <span class="small muted">${esc(join(bedLabel(p.beds), bathLabel(p.baths), sqftLabel(p.sqft_min, p.sqft_max)))}</span>
+        <span style="font-weight:500">${a.from ? 'From ' + money(a.from) : '<span class="muted">Last seen ' + esc(fmtDate(p.last_seen_at)) + '</span>'}</span>
+      </div></a>`).join('')}</div>`
+  : `<div class="note" style="margin-top:28px"><strong>${esc(st.text)}.</strong> <span class="muted">You can still watch it; once it's connected, its units show up here and on your Watchlist.</span></div>`}`;
+}
+
+function pagePlan(id) {
+  const p = P.get(id); if (!p) return notFound();
+  const b = B.get(p.building_id), a = planAvail(p);
+  const units = unitsOfPlan(id).sort((x, y) => !!unitOpen(y) - !!unitOpen(x) || (y.floor || 0) - (x.floor || 0));
+  const floors = floorsOf(p.building_id);
+  const soonest = a.units.map((u) => unitRent(u)?.on).filter(Boolean).sort()[0];
+  return `
+  <div class="crumbs"><a href="#/building/${b.id}">${esc(b.name)}</a> · ${esc(p.name)}</div>
+  <div class="split">
+    <section class="planimg" aria-label="Floor plan">${planImg(p)}</section>
+    <section class="stack" style="gap:24px">
+      <div style="display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end">
+        <div><h1 class="display">${esc(p.name)}</h1><p class="muted" style="margin:6px 0 0">${esc(join(bedLabel(p.beds), bathLabel(p.baths), sqftLabel(p.sqft_min, p.sqft_max)))}</p></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">${siteLink(b) ? `<a class="btn" href="${esc(siteLink(b))}" target="_blank" rel="noopener">See ${esc(p.name)} on the building site ↗</a>` : ''}${watchBtn('plan', p.id, p.name)}</div>
+      </div>
+      <div class="stats three" style="margin:0">
+        <div><div class="stat">${a.count}</div><div class="small muted">available now</div></div>
+        <div><div class="stat">${money(a.from)}</div><div class="small muted">lowest rent listed</div></div>
+        <div><div class="stat">${soonest ? (soonest <= todayISO ? 'Now' : fmtDay(soonest)) : '—'}</div><div class="small muted">soonest move-in</div></div>
+      </div>
+      <div class="stack" style="gap:10px">
+        <h2 style="font-size:24px">Units with this plan</h2>
+        ${units.length ? `<div class="card tablecard"><table class="units">
+          <thead><tr><th scope="col">Unit</th><th scope="col">Floor</th><th scope="col">Sq ft</th><th scope="col">Status</th><th scope="col">Rent · move-in</th><th scope="col"><span class="sr">Watch</span></th></tr></thead>
+          <tbody>${units.map((u) => {
+            const o = unitOpen(u), r = o ? unitRent(u) : null, key = 'u' + u.id, ex = expanded.has(key);
+            const last = (winU.get(u.id) || []).filter((w) => w.closed_at).pop();
+            return `<tr class="row">
+              <td class="c-unit"><button type="button" class="unitbtn" data-expand="${key}" aria-expanded="${ex}" aria-label="${esc(unitName(u))} details"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2.5 7.5 6 4 9.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>${esc(u.unit_number || '—')}</button></td>
+              <td data-l="Floor" class="mono">${u.floor ?? '—'}${u.is_top_floor ? ' <span class="pill acc">Top</span>' : ''}</td>
+              <td data-l="Sq ft" class="mono">${u.sqft ?? '—'}</td>
+              <td><span class="pill ${o ? 'ok' : 'off'}">${o ? 'Available' : last ? 'Leased ' + fmtDay(last.closed_at.slice(0, 10)) : 'Not listed'}</span></td>
+              <td class="mono">${r ? money(r.rent) + (r.on ? ' · ' + (r.on <= todayISO ? 'now' : fmtDay(r.on)) : '') : '—'}</td>
+              <td class="c-watch"><button type="button" class="star" data-watch="unit:${u.id}" aria-pressed="${watching('unit', u.id)}" aria-label="Watch ${esc(unitName(u))}">${watching('unit', u.id) ? '★' : '☆'}</button></td>
+            </tr>${ex ? `<tr class="detail"><td colspan="6"><div class="detailgrid">
+              <div><div class="dlabel">Rent by lease length</div>${o ? barsFor(r?.all) : '<p class="muted small" style="margin:0">Not listed right now.</p>'}</div>
+              <div><div class="dlabel">When it could come back</div><p style="margin:0">${comeBack(u)}</p></div>
+              <div><div class="dlabel">Tracked</div><p style="margin:0" class="small">First seen ${esc(fmtDate(u.first_seen_at))}.<br>Listed ${(winU.get(u.id) || []).length} ${(winU.get(u.id) || []).length === 1 ? 'time' : 'times'} since.</p><p style="margin:10px 0 0"><a href="#/unit/${u.id}">Open unit page</a></p></div>
+            </div></td></tr>` : ''}`;
+          }).join('')}</tbody></table></div>`
+        : `<div class="note"><span class="muted">We haven't matched any unit numbers to this plan yet. They appear here as the building lists them.</span></div>`}
+        <p class="small muted" style="margin:0">The list grows as units come online, so it may not show every unit in the building yet.</p>
+      </div>
+    </section>
+  </div>`;
+}
+
+function pageUnit(id) {
+  const u = U.get(id); if (!u) return notFound();
+  const b = B.get(u.building_id), p = P.get(u.floor_plan_id), o = unitOpen(u), r = o ? unitRent(u) : null;
+  const ws = (winU.get(u.id) || []).slice().reverse();
+  const items = ws.slice(0, 3).map((w) => w.closed_at
+    ? `<li><span class="d"></span><div><strong>Leased</strong> ${esc(fmtDate(w.closed_at))} after ${Math.max(1, Math.round((new Date(w.closed_at) - new Date(w.opened_at)) / DAY))} days<div class="small muted">${w.min_rent_seen ? 'Listed at ' + money(w.min_rent_seen) : ''}</div></div></li>`
+    : `<li><span class="d now"></span><div><strong>Listed</strong> ${esc(fmtDate(w.opened_at))}${r ? ' at ' + money(r.rent) + (r.months ? ' (' + r.months + ' months)' : '') : ''}<div class="small muted">Still available · ${(() => { const n = Math.max(1, Math.round((now - new Date(w.opened_at)) / DAY)); return n + (n === 1 ? ' day' : ' days'); })()} on market</div></div></li>`);
+  items.push(`<li><span class="d none"></span><div class="muted">Before ${esc(fmtDate(u.first_seen_at))}: not tracked yet</div></li>`);
+  const floors = floorsOf(u.building_id);
+  return `
+  <div class="crumbs"><a href="#/building/${b.id}">${esc(b.name)}</a>${p ? ` · <a href="#/plan/${p.id}">${esc(p.name)}</a>` : ''} · ${esc(unitName(u))}</div>
+  <section style="display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:flex-end">
+    <div class="stack" style="gap:10px">
+      <span class="pill ${o ? 'ok' : 'off'}" style="align-self:flex-start">${o ? 'Available' + (r?.on ? ' · ' + moveIn(r.on) : '') : 'Not listed right now'}</span>
+      <h1 class="display" style="font-size:64px">${esc(unitName(u))}</h1>
+      <p class="muted" style="margin:0">${esc(join(p?.name, p && bedLabel(p.beds), p && bathLabel(p.baths), (u.sqft || p?.sqft_min) && (u.sqft || p.sqft_min) + ' sq ft', u.floor && 'floor ' + u.floor + (floors ? ' of ' + floors : '')))}</p>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">${siteLink(b) ? `<a class="btn" href="${esc(siteLink(b))}" target="_blank" rel="noopener">See it on the building site ↗</a>` : ''}${watchBtn('unit', u.id, unitName(u))}</div>
+  </section>
+  <div class="unitgrid" style="margin-top:32px">
+    <section class="card panel" aria-labelledby="leaseh">
+      <div><h2 id="leaseh" style="font-size:28px">Rent by lease length</h2>
+      <p class="muted" style="margin:4px 0 0">${o && r ? `Checked ${esc(fmtDate(LU.get(u.id)?.observed_at, { month: 'short', day: 'numeric' }))}. Lowest is <strong style="color:var(--ink)">${money(r.rent)}${r.months ? ' on a ' + r.months + '-month lease' : ''}</strong>.` : 'Not listed right now, so there are no current prices.'}</p></div>
+      ${o ? barsFor(r?.all) : ''}
+      ${p ? `<div class="planimg" style="min-height:220px;margin-top:8px">${planImg(p)}</div>` : ''}
+    </section>
+    <aside class="stack" style="gap:20px">
+      <section class="soft" aria-labelledby="nexth"><h2 id="nexth" style="font-size:24px">When it could come back</h2><p style="margin:0">${comeBack(u)}</p><p class="small muted" style="margin:0">The estimate sharpens as this unit's history builds.</p></section>
+      <section class="stack" style="gap:14px;border-top:1px solid var(--line);padding-top:18px" aria-labelledby="histh">
+        <h2 id="histh" style="font-size:24px">History</h2>
+        ${ws.length > 3 ? `<p style="margin:0">Listed ${ws.length} times since ${esc(fmtDate(u.first_seen_at, { year: 'numeric' }))}.</p>` : ''}
+        <ol class="hist">${items.join('')}</ol>
+      </section>
+      <section class="stack" style="gap:8px;border-top:1px solid var(--line);padding-top:18px">
+        <h2 style="font-size:24px">Where it sits</h2>
+        <p style="margin:0">${esc(join(u.floor ? 'Floor ' + u.floor + (floors ? ' of ' + floors : '') : null, u.is_top_floor ? 'Top floor' : null, u.facing ? 'Faces ' + u.facing : null, u.view_of ? 'View of ' + u.view_of : null)) || '<span class="muted">Floor and direction not known yet.</span>'}</p>
+        <p class="small muted" style="margin:0">Which way each unit faces comes in a later update.</p>
+      </section>
+    </aside>
+  </div>`;
+}
+
+function pageWatchlist() {
+  const ev = watchEvents(), seen = seenAt();
+  const items = [
+    ...Object.keys(W.unit).map((id) => { const u = U.get(+id); if (!u) return null; const o = unitOpen(u); return { kind: 'UNIT', name: unitName(u) + (P.get(u.floor_plan_id) ? ' · ' + P.get(u.floor_plan_id).name : ''), rule: B.get(u.building_id)?.name + ' · every change', status: o ? 'Available' : 'Not listed', ok: !!o, href: '#/unit/' + u.id, key: 'unit:' + id }; }),
+    ...Object.keys(W.plan).map((id) => { const p = P.get(+id); if (!p) return null; const a = planAvail(p); return { kind: 'FLOOR PLAN', name: p.name, rule: B.get(p.building_id)?.name + ' · any unit', status: a.count ? a.count + ' available' : 'Not listed', ok: !!a.count, href: '#/plan/' + p.id, key: 'plan:' + id }; }),
+    ...Object.keys(W.building).map((id) => { const b = B.get(+id); if (!b) return null; const n = unitsOfBuilding(b.id).filter(unitOpen).length; return { kind: 'BUILDING', name: b.name, rule: 'Any unit', status: RUN.has(b.id) ? n + ' available' : 'Not tracked yet', ok: n > 0, href: '#/building/' + b.id, key: 'building:' + id }; }),
+  ].filter(Boolean);
+  return `
+  <div class="note" style="display:flex;flex-wrap:wrap;gap:8px 24px;align-items:center;justify-content:space-between;margin-bottom:32px">
+    <span class="muted">Your watchlist lives in this browser, with no account needed. Clearing browser data or switching devices starts fresh.</span>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start">
+    <section style="flex:999 1 560px;min-width:0" class="stack" aria-labelledby="ch">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+        <h1 id="ch" class="display" style="font-size:48px">What changed</h1>
+        ${ev.length ? (ev.some((e) => new Date(e.at).getTime() > seen) ? `<button type="button" class="btn sm" id="markall">Mark all read</button>` : `<span class="muted small">All caught up</span>`) : ''}
+      </div>
+      ${ev.length ? `<ul class="events">${ev.map((e) => `<li>
+          <span class="udot ${new Date(e.at).getTime() > seen ? 'on' : ''}" aria-hidden="true"></span>
+          <div class="stack" style="gap:3px;min-width:0"><span class="kind" style="color:${e.color}">${e.kind}</span><a class="etitle" href="#/unit/${e.u.id}">${esc(unitName(e.u))}${P.get(e.u.floor_plan_id) ? ' · ' + esc(P.get(e.u.floor_plan_id).name) : ''}</a><span class="small muted">${esc(join(B.get(e.u.building_id)?.name, e.detail))}</span></div>
+          <span class="small muted" style="white-space:nowrap">${esc(ago(e.at))}</span></li>`).join('')}</ul>`
+      : `<div class="emptybox"><strong>${items.length ? 'Nothing has changed yet.' : 'Nothing watched yet.'}</strong><span class="muted">${items.length ? "When a unit you watch is listed, leased or drops in price, it shows up here." : 'Tap Watch on any unit, floor plan or building and its changes show up here.'}</span>${items.length ? '' : '<a class="btn primary" href="#/">Browse what\'s just listed</a>'}</div>`}
+    </section>
+    <aside style="flex:1 1 320px;min-width:0" class="stack" aria-labelledby="wh">
+      <h2 id="wh" style="font-size:28px;margin-bottom:14px">Watching</h2>
+      <div class="wcards">${items.map((w) => `<div class="card wcard">
+          <a href="${w.href}" class="stack" style="gap:2px;min-width:0"><span class="kind muted">${w.kind}</span><span style="font-weight:600">${esc(w.name)}</span><span class="small muted">${esc(w.rule)}</span></a>
+          <div class="stack" style="gap:8px;align-items:flex-end"><span class="pill ${w.ok ? 'ok' : 'off'}">${esc(w.status)}</span><button type="button" class="btn sm" data-watch="${w.key}" aria-label="Stop watching ${esc(w.name)}">Remove</button></div>
+        </div>`).join('') || '<p class="muted" style="margin:0">Units, floor plans and buildings you watch appear here.</p>'}</div>
+    </aside>
+  </div>`;
+}
+
+function notFound() {
+  return `<div class="emptybox" style="margin-top:40px"><strong>We couldn't find that page.</strong><span class="muted">It may have been removed from the building's site.</span><a class="btn primary" href="#/">Go to Just listed</a></div>`;
+}
+
+// ---------- search ----------
+const q = document.getElementById('q'), qres = document.getElementById('qres');
+const INDEX = [
+  ...DATA.buildings.map((b) => ({ label: b.name, meta: 'Building', href: '#/building/' + b.id, text: b.name })),
+  ...DATA.floorPlans.map((p) => ({ label: p.name, meta: join('Floor plan', B.get(p.building_id)?.name), href: '#/plan/' + p.id, text: p.name + ' ' + (B.get(p.building_id)?.name || '') })),
+  ...DATA.units.filter((u) => u.unit_number).map((u) => ({ label: 'Unit ' + u.unit_number, meta: join(P.get(u.floor_plan_id)?.name, B.get(u.building_id)?.name), href: '#/unit/' + u.id, text: 'unit ' + u.unit_number + ' ' + u.unit_number })),
+];
+let sel = -1, hits = [];
+function showResults() {
+  const t = q.value.trim().toLowerCase();
+  if (!t) { qres.hidden = true; q.setAttribute('aria-expanded', 'false'); return; }
+  hits = INDEX.filter((x) => x.text.toLowerCase().includes(t)).slice(0, 8);
+  sel = hits.length ? 0 : -1;
+  qres.innerHTML = hits.length ? hits.map((h, i) => `<a role="option" href="${h.href}" aria-selected="${i === sel}"><span>${esc(h.label)}</span><span class="small muted">${esc(h.meta)}</span></a>`).join('') : `<div class="empty">No buildings, plans or units match “${esc(q.value)}”.</div>`;
+  qres.hidden = false; q.setAttribute('aria-expanded', 'true');
+}
+q.addEventListener('input', showResults);
+q.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); if (!hits.length) return; sel = (sel + (e.key === 'ArrowDown' ? 1 : -1) + hits.length) % hits.length; [...qres.querySelectorAll('a')].forEach((a, i) => a.setAttribute('aria-selected', i === sel)); }
+  if (e.key === 'Enter' && hits[sel]) { location.hash = hits[sel].href; closeSearch(); }
+  if (e.key === 'Escape') closeSearch();
+});
+function closeSearch() { qres.hidden = true; q.setAttribute('aria-expanded', 'false'); q.value = ''; }
+document.addEventListener('click', (e) => { if (!e.target.closest('.search')) qres.hidden = true; else if (e.target.closest('.results a')) closeSearch(); });
+
+// ---------- router ----------
+function render() {
+  const h = location.hash.replace(/^#/, '') || '/';
+  const [, page, id] = h.split('/');
+  document.querySelectorAll('[data-nav]').forEach((a) => a.removeAttribute('aria-current'));
+  const nav = !page ? 'home' : ['buildings', 'building', 'plan', 'unit'].includes(page) ? 'buildings' : page;
+  document.querySelector(`[data-nav="${nav}"]`)?.setAttribute('aria-current', page === 'buildings' || !page || page === 'watchlist' ? 'page' : 'location');
+  const n = Number(id);
+  app.innerHTML = !page ? pageHome() : page === 'buildings' ? pageBuildings() : page === 'building' ? pageBuilding(n) : page === 'plan' ? pagePlan(n) : page === 'unit' ? pageUnit(n) : page === 'watchlist' ? pageWatchlist() : notFound();
+  const t = app.querySelector('h1')?.textContent;
+  document.title = t && page ? t + ' · Had Enough' : 'Had Enough';
+  updateHeader();
+}
+app.addEventListener('click', (e) => {
+  const f = e.target.closest('[data-f]');
+  if (f) { const [k, v] = f.dataset.f.split(':'); if (k === 'reset') { Object.assign(filt, { b: 'all', beds: 'any', max: 'any', sort: 'new' }); store.set('filters', filt); render(); } else setFilt(k, v); return; }
+  const bf = e.target.closest('[data-bf]');
+  if (bf) { const [k, v] = bf.dataset.bf.split(':'); if (k === 'reset') { bFilt.beds = 'any'; bFilt.avail = false; } else if (k === 'avail') bFilt.avail = !bFilt.avail; else bFilt[k] = v; render(); return; }
+  if (e.target.id === 'more') { feedLimit += 20; render(); return; }
+  if (e.target.id === 'markall') { store.set('seen', Date.now()); render(); }
+});
+app.addEventListener('change', (e) => { const s = e.target.closest('[data-fsel]'); if (s) setFilt(s.dataset.fsel, s.value); });
+let lastPage = '';
+window.addEventListener('hashchange', () => { const p = location.hash.split('/')[1] || ''; render(); if (p !== lastPage || true) window.scrollTo(0, 0); lastPage = p; });
+document.getElementById('foot').innerHTML = `Data checked ${esc(fmtDate(lastChecked))} at ${fmtTime(lastChecked)} Austin time. Prices and availability come from each building's own site and can change; confirm with the building before you apply.`;
+render();
+})();
+</script>
+</body>
+</html>
