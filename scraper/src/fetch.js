@@ -52,12 +52,12 @@ async function robotsAllows(url) {
   return isAllowedByRobots(robotsCache.get(u.origin), u.pathname);
 }
 
-export async function politeFetch(url) {
+export async function politeFetch(url, accept = 'text/html') {
   if (!(await robotsAllows(url))) {
     throw new Error(`robots.txt disallows ${url}`);
   }
   const res = await fetch(url, {
-    headers: { 'user-agent': USER_AGENT, accept: 'text/html' },
+    headers: { 'user-agent': USER_AGENT, accept },
     redirect: 'follow',
     signal: AbortSignal.timeout(30_000),
   });

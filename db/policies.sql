@@ -18,7 +18,7 @@ begin
   foreach t in array array[
     'users','admins','buildings','floor_plans','units','scrape_runs','availability_snapshots',
     'availability_windows','attribute_defs','labels','fees','destinations','location_scores',
-    'household','watches','alerts_sent','criteria','ratings','notes']
+    'household','watches','notifications','criteria','ratings','notes']
   loop
     execute format('alter table %I enable row level security', t);
     execute format('alter table %I force row level security', t);
@@ -64,9 +64,11 @@ begin
   end loop;
 end $$;
 
--- Alerts: visible only to the owner of the watch.
-create policy alerts_owner on alerts_sent for select to authenticated
-  using (exists (select 1 from watches w where w.id = watch_id and w.user_id = auth.uid()));
+-- Notifications: each visitor sees and marks read only their own. Only the scraper creates them.
+create policy notifications_read on notifications for select to authenticated
+  using (user_id = auth.uid());
+create policy notifications_mark_seen on notifications for update to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- Views run with the caller's permissions, so they follow the rules above.
 alter view current_labels        set (security_invoker = true);
@@ -95,7 +97,9 @@ grant select on building_monthly_fees to authenticated;
 -- Per-visitor tables: only signed-in sessions (anonymous ones included).
 grant select, insert, update, delete on users, household, watches, criteria, ratings, notes, destinations
   to authenticated;
-grant select on alerts_sent, scrape_runs, admins to authenticated;
+grant select on scrape_runs, admins to authenticated;
+grant select on notifications to authenticated;
+grant update (seen_at) on notifications to authenticated;   -- marking read is the only change allowed
 
 -- Identity columns need sequence access for inserts.
 grant usage on all sequences in schema public to authenticated;

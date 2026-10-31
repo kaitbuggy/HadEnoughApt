@@ -143,4 +143,10 @@ export function parse(html) {
   return { plans, units, problems };
 }
 
-export default { platform: 'griffis-engrain', parse };
+export default {
+  platform: 'griffis-engrain',
+  parse,
+  async scrape(building, fetchText) {
+    return parse(await fetchText(building.availability_url));
+  },
+};

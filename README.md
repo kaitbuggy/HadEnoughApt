@@ -8,6 +8,7 @@ A tool for tracking specific apartment **units and floor plans**, not just build
 |---|---|
 | `db/schema.sql` | Postgres/Supabase schema. Tested on Postgres 16. |
 | `db/policies.sql` | Row-level security: anyone can read listing data, each visitor's watchlist and notes are private to them, and only admins can write labels. |
+| `db/migrations/` | Changes for a database created before them. Run each once, in order, in the SQL Editor. |
 | `db/seed.sql` | The attributes screened on, plus 4 Austin buildings. |
 | `scraper/` | Node scraper: reads each building's availability page and records plans, units, prices and history. |
 | `.github/workflows/` | `scrape.yml` checks availability twice a day; `test.yml` runs tests on every pull request. |
@@ -27,7 +28,7 @@ buildings ─┬─ floor_plans ─┬─ units
            ├─ location_scores   (coffee within 10 min walk, trails, commute)
            └─ scrape_runs ── availability_snapshots ──► availability_windows
                                                          (opened / closed / rent seen)
-watches ──► alerts_sent          ratings / criteria / notes  (weighted ranking)
+watches ──► notifications        ratings / criteria / notes  (weighted ranking)
 ```
 
 - **availability_windows** is what makes the tool different. Each time a plan or unit shows up, it opens a window, and when it disappears, the window closes. From that you get "last listed 3 weeks ago, usually leases in 16 days, lowest rent seen $1,428."
@@ -39,9 +40,27 @@ watches ──► alerts_sent          ratings / criteria / notes  (weighted ran
 | Building | Site / availability | What the site shows | Scraper plan |
 |---|---|---|---|
 | Griffis at The Domain | griffisresidential.com/property/the-domain/pricing-availability/ (WordPress with Engrain's "Spaces" plugin) | 29 plan cards, including unavailable ones. Each available card lists its unit ids, and the page embeds per-unit move-in dates and prices for every lease length. Floor plan image for every plan. | **Adapter built** (`scraper/src/adapters/griffis.js`). Unit numbers aren't on the page; they're in the SightMap embed, which is a later step. |
-| Solaris House at Uptown ATX | Official site not found yet | Built 2024. 1BR plans 570–1,075 sq ft. | Need the official URL. |
-| The Grand at the Domain | Official site not found yet | Built 2019. Studio/1BR/2BR. | Need the official URL. |
-| The Watson | Official site not found yet | Plan codes like A1.1, B2.3. A `WF` suffix appears to mean workforce-housing units. | Need the official URL. |
+| Solaris House at Uptown ATX | solarishouseapartments.com | RentCafe (Yardi). | RentCafe adapter next. |
+| The Grand at the Domain | thegrandatdomain.com | Not checked yet. | — |
+| The Watson | thewatson.com (Entrata), availability via SightMap embed | 141 available units with unit number, floor, sq ft, price, lease length and move-in date; 75 plans with images. | **SightMap adapter built.** |
+
+## SightMap
+
+Many complexes embed a SightMap (`sightmap.com/embed/<code>`). Its data feed lists every floor plan, each floor, and each available unit with its **unit number**, floor, size, price, lease length and move-in date. The scraper uses it two ways:
+- **As the whole source** (`platform = 'sightmap'`), e.g. The Watson.
+- **To add unit numbers** to another adapter's units (`buildings.sightmap_url`), e.g. Griffis, whose unit ids are SightMap's.
+
+## Notifications
+
+Visitors don't need an account. They star units, floor plans or buildings (`watches`), and after each scrape the scraper adds rows to `notifications`, shown in the site's notification bell:
+
+| Event | Who hears about it |
+|---|---|
+| **Listed**: a unit appears | Watchers of that unit, its floor plan, or its building (within their max rent and min floor) |
+| **Price drop**: a listed unit hits a new low | Same as above |
+| **Leased**: a unit disappears | Watchers of that unit only |
+
+Each event is recorded once per watch, so re-running a scrape never repeats a notification. Visitors can only read their own notifications and mark them read. Optional accounts (email + password with 2FA, or a passkey) keep a watchlist across devices; opt-in email alerts can come later.
 
 ## Running the scraper
 
@@ -49,7 +68,8 @@ watches ──► alerts_sent          ratings / criteria / notes  (weighted ran
 cd scraper
 npm ci
 npm test                    # parser tests (add TEST_DATABASE_URL for the database test)
-npm run scrape:dry          # fetch Griffis and print what it found; no database needed
+npm run scrape:dry          # fetch Griffis (plus SightMap unit numbers) and print; no database needed
+node src/run.js --dry-run-sightmap https://sightmap.com/embed/x1p8jg4rvd6   # any SightMap embed
 DATABASE_URL=... npm run scrape
 ```
 
@@ -66,6 +86,7 @@ Until the secret exists, the scheduled job skips itself instead of failing.
 - If a page stops looking like what the adapter expects, the run is recorded as `changed_layout`, nothing is marked as leased, and the job fails so GitHub emails the repo owner.
 
 ## Next steps
-1. Official site links for Solaris House, The Grand and The Watson, then one adapter per platform.
-2. Labeling job: new floor-plan image → vision model → pending `labels` → review queue.
-3. Unit numbers and floors from the SightMap embed.
+1. RentCafe adapter (Solaris House).
+2. "Last available / likely back around" estimates per unit.
+3. Website: browse, watch, notification bell, optional account.
+4. Labeling job: new floor-plan image → vision model → pending `labels` → review queue.

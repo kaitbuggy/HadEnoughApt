@@ -75,3 +75,64 @@ test('history: open, stay open, close, and survive a broken page', { skip: !url 
     await client.end();
   }
 });
+
+test('notifications: listed, price drop and leased reach the right watchers once', { skip: !url && 'set TEST_DATABASE_URL to run' }, async () => {
+  const { parseData, enrichUnits } = await import('../src/adapters/sightmap.js');
+  const feed = JSON.parse(readFileSync(new URL('./fixtures/sightmap-feed.json', import.meta.url), 'utf8'));
+  const client = new pg.Client({ connectionString: url });
+  await client.connect();
+  try {
+    // A separate building so this test doesn't share windows with the history test.
+    const { rows: [b] } = await client.query(`select id from buildings where name = 'The Watson'`);
+    const building = { id: b.id };
+    const page = () => { const p = parse(html); enrichUnits(p, parseData(feed)); return p; };
+
+    const U = { a: 'aaaaaaaa-0000-0000-0000-000000000001', b: 'aaaaaaaa-0000-0000-0000-000000000002',
+                c: 'aaaaaaaa-0000-0000-0000-000000000003', d: 'aaaaaaaa-0000-0000-0000-000000000004' };
+    await client.query(`insert into users (id) select unnest($1::uuid[])`, [Object.values(U)]);
+
+    // Run 1 creates the plans and units, so watches can point at them.
+    await recordScrape(client, building, page(), { observedAt: new Date('2026-11-03T13:00:00Z') });
+    const id = async (sql, p) => (await client.query(sql, p)).rows[0].id;
+    const shanghaiUnit = await id(`select id from units where building_id=$1 and external_id='3085280'`, [b.id]);
+    const leavingUnit = await id(`select id from units where building_id=$1 and external_id='3085371'`, [b.id]);
+    const milanPlan = await id(`select id from floor_plans where building_id=$1 and name='Milan'`, [b.id]);
+    await client.query(`insert into watches (user_id, unit_id) values ($1,$2), ($3,$4)`,
+      [U.a, shanghaiUnit, U.d, leavingUnit]);
+    await client.query(`insert into watches (user_id, floor_plan_id, max_base_rent) values ($1,$2,1450)`, [U.b, milanPlan]);
+    await client.query(`insert into watches (user_id, building_id, min_floor) values ($1,$2,3)`, [U.c, b.id]);
+
+    // Run 2: Shanghai unit 5161 drops $20, and Milan unit 3085371 leases.
+    const html2 = html
+      .replace('{"lease_term": "15", "price": "1819"}', '{"lease_term": "15", "price": "1799"}')
+      .replace(',3085371"', '"')
+      .replace('>7</span>', '>6</span>')
+      .replace(/const spacesUnitJSON = (.*)\n/, (_, json) =>
+        `const spacesUnitJSON = ${JSON.stringify(JSON.parse(json).filter((u) => u.id !== '3085371'))}\n`);
+    const p2 = parse(html2); enrichUnits(p2, parseData(feed));
+    assert.deepEqual(p2.problems, []);
+    const r2 = await recordScrape(client, building, p2, { observedAt: new Date('2026-11-03T23:00:00Z') });
+    assert.deepEqual(r2.priceDrops, [{ id: '3085280', from: 1819, to: 1799 }]);
+
+    const notes = async (user) => (await client.query(
+      `select kind, title, detail from notifications where user_id = $1 order by id`, [user])).rows;
+    const a = await notes(U.a);
+    assert.equal(a.length, 1, 'unit watcher hears about the price drop');
+    assert.equal(a[0].kind, 'price_drop');
+    assert.equal(a[0].title, 'Unit 5161 · Shanghai · The Watson · price dropped');
+    assert.deepEqual(a[0].detail, { rent: 1799, previous_rent: 1819, available_on: '2026-10-05' });
+
+    const d = await notes(U.d);
+    assert.deepEqual(d.map((n) => n.kind), ['leased'], 'unit watcher hears it leased');
+
+    assert.equal((await notes(U.b)).length, 0, 'plan watcher: no lease alerts, and no drop on another plan');
+    assert.equal((await notes(U.c)).length, 0, 'building watcher on floor 3+: Shanghai unit is on floor 1');
+
+    // Re-running the same page creates nothing new.
+    const r3 = await recordScrape(client, building, p2, { observedAt: new Date('2026-11-04T13:00:00Z') });
+    assert.equal(r3.notifications, 0);
+    assert.equal((await notes(U.a)).length, 1);
+  } finally {
+    await client.end();
+  }
+});
