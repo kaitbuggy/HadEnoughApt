@@ -1,0 +1,34 @@
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+supabase/.temp/
+
+# Dependencies and builds
+node_modules/
+.next/
+dist/
+build/
+.vercel/
+.netlify/
+
+# Python (scraper / labeling jobs)
+__pycache__/
+*.pyc
+.venv/
+
+# Local data: never commit scraped dumps or personal exports
+data/
+*.sqlite
+*.db
+*.xlsx
+*.csv
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
