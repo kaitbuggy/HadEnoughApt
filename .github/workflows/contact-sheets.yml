@@ -1,0 +1,31 @@
+name: Plan contact sheets (one-off)
+
+# Temporary helper for labeling floor plans. Runs only on pushes to the
+# plan-sheets-job branch and writes images to the plan-sheets branch.
+on:
+  push:
+    branches: [plan-sheets-job]
+
+permissions:
+  contents: write
+
+jobs:
+  sheets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - run: git fetch origin site-data && git show FETCH_HEAD:site-data.json > /tmp/site-data.json
+      - run: pip install --quiet pillow
+      - run: python3 tools/contact_sheets.py /tmp/site-data.json "$RUNNER_TEMP/sheets"
+      - name: Push to the plan-sheets branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          cd "$RUNNER_TEMP/sheets"
+          git init -q -b plan-sheets
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add . && git commit -qm "Plan contact sheets"
+          git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO}.git" HEAD:refs/heads/plan-sheets
