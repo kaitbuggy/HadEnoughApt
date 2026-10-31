@@ -72,3 +72,32 @@ create policy alerts_owner on alerts_sent for select to authenticated
 alter view current_labels        set (security_invoker = true);
 alter view floor_plan_history    set (security_invoker = true);
 alter view building_monthly_fees set (security_invoker = true);
+
+-- ─────────────────────────────────────────────────────────────
+-- Explicit grants. The project is set up with "Automatically expose new tables"
+-- turned off, so the web roles can only reach what is listed here. Row-level
+-- security above still decides which rows each role sees.
+-- ─────────────────────────────────────────────────────────────
+grant usage on schema public to anon, authenticated;
+
+-- Listing data: anyone can read; logged-in admins can write (RLS enforces admin).
+grant select on buildings, floor_plans, units, availability_snapshots, availability_windows,
+               attribute_defs, fees, location_scores, labels
+  to anon, authenticated;
+grant insert, update, delete on buildings, floor_plans, units, availability_snapshots,
+               availability_windows, attribute_defs, fees, location_scores, labels
+  to authenticated;
+
+-- Views over listing data.
+grant select on current_labels, floor_plan_history to anon, authenticated;
+grant select on building_monthly_fees to authenticated;
+
+-- Per-visitor tables: only signed-in sessions (anonymous ones included).
+grant select, insert, update, delete on users, household, watches, criteria, ratings, notes, destinations
+  to authenticated;
+grant select on alerts_sent, scrape_runs, admins to authenticated;
+
+-- Identity columns need sequence access for inserts.
+grant usage on all sequences in schema public to authenticated;
+
+grant execute on function is_admin() to anon, authenticated;
