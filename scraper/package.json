@@ -1,0 +1,17 @@
+{
+  "name": "hadenoughapt-scraper",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Checks apartment availability pages and records floor plan and unit history.",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "scrape": "node src/run.js",
+    "scrape:dry": "node src/run.js --dry-run",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "cheerio": "1.0.0",
+    "pg": "8.13.1"
+  }
+}
