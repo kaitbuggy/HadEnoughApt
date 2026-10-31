@@ -1,0 +1,54 @@
+name: Export site data
+
+# Writes the public listing data (no visitor data) to site-data.json on the
+# `site-data` branch, which the website reads. The branch holds a single
+# commit that is replaced on every run, so history doesn't pile up.
+# Runs after each availability check and on demand.
+
+on:
+  workflow_run:
+    workflows: ['Check availability']
+    types: [completed]
+  workflow_dispatch: {}
+  pull_request:
+    paths:
+      - 'scraper/src/export.js'
+      - '.github/workflows/export.yml'
+
+permissions:
+  contents: write   # to update the site-data branch only
+
+jobs:
+  export:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: scraper
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: scraper/package-lock.json
+      - run: npm ci
+      - name: Export
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: node src/export.js out/site-data.json
+      - name: Publish to the site-data branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          dir="$RUNNER_TEMP/site-data"
+          mkdir -p "$dir" && cp out/site-data.json "$dir/"
+          cd "$dir"
+          git init -q -b site-data
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add site-data.json
+          git commit -qm "Site data $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO}.git" HEAD:refs/heads/site-data
