@@ -9,6 +9,8 @@ A tool for tracking specific apartment **units and floor plans**, not just build
 | `db/schema.sql` | Postgres/Supabase schema. Tested on Postgres 16. |
 | `db/policies.sql` | Row-level security: anyone can read listing data, each visitor's watchlist and notes are private to them, and only admins can write labels. |
 | `db/seed.sql` | The attributes screened on, plus 4 Austin buildings. |
+| `scraper/` | Node scraper: reads each building's availability page and records plans, units, prices and history. |
+| `.github/workflows/` | `scrape.yml` checks availability twice a day; `test.yml` runs tests on every pull request. |
 | `shell/index.html` | Clickable prototype of the Phase 1 screens. Open it in a browser. |
 | `SECURITY.md` | Repo, secrets and database security checklist. |
 
@@ -36,12 +38,34 @@ watches ──► alerts_sent          ratings / criteria / notes  (weighted ran
 
 | Building | Site / availability | What the site shows | Scraper plan |
 |---|---|---|---|
-| Griffis at The Domain | griffisresidential.com/property/the-domain/pricing-availability/ (site built by Engrain, the company behind SightMap) | 19 plan cards (Milan, Shanghai, London…): homes available, sq ft, "From" price, base rent, lease length. **Unavailable plans are still listed.** Floor Plan / Home / Map views. | First adapter. Plan-level history works right away. Check whether the Map view is a SightMap embed with unit numbers and floors. |
+| Griffis at The Domain | griffisresidential.com/property/the-domain/pricing-availability/ (WordPress with Engrain's "Spaces" plugin) | 29 plan cards, including unavailable ones. Each available card lists its unit ids, and the page embeds per-unit move-in dates and prices for every lease length. Floor plan image for every plan. | **Adapter built** (`scraper/src/adapters/griffis.js`). Unit numbers aren't on the page; they're in the SightMap embed, which is a later step. |
 | Solaris House at Uptown ATX | Official site not found yet | Built 2024. 1BR plans 570–1,075 sq ft. | Need the official URL. |
 | The Grand at the Domain | Official site not found yet | Built 2019. Studio/1BR/2BR. | Need the official URL. |
 | The Watson | Official site not found yet | Plan codes like A1.1, B2.3. A `WF` suffix appears to mean workforce-housing units. | Need the official URL. |
 
+## Running the scraper
+
+```bash
+cd scraper
+npm ci
+npm test                    # parser tests (add TEST_DATABASE_URL for the database test)
+npm run scrape:dry          # fetch Griffis and print what it found; no database needed
+DATABASE_URL=... npm run scrape
+```
+
+### Turning on the scheduled job
+1. Create a Supabase project and run `db/schema.sql`, `db/policies.sql`, `db/seed.sql` in the SQL Editor.
+2. Copy the database connection string (Project Settings → Database → Connection string, "Session pooler").
+3. In GitHub: Settings → Secrets and variables → Actions → New repository secret, name `DATABASE_URL`.
+4. Actions tab → "Check availability" → Run workflow, to test it once.
+
+Until the secret exists, the scheduled job skips itself instead of failing.
+
+### How it stays polite and safe
+- Checks twice a day, identifies itself with a clear user agent, and follows robots.txt.
+- If a page stops looking like what the adapter expects, the run is recorded as `changed_layout`, nothing is marked as leased, and the job fails so GitHub emails the repo owner.
+
 ## Next steps
-1. Get the official site links for Solaris, The Grand and The Watson.
-2. Write the Griffis adapter as a GitHub Actions cron job. It writes `scrape_runs`, `availability_snapshots` and `availability_windows`.
-3. Labeling job: new floor-plan image → vision model → pending `labels` → review queue.
+1. Official site links for Solaris House, The Grand and The Watson, then one adapter per platform.
+2. Labeling job: new floor-plan image → vision model → pending `labels` → review queue.
+3. Unit numbers and floors from the SightMap embed.

@@ -40,6 +40,7 @@ create table buildings (
 create table floor_plans (
   id            bigint generated always as identity primary key,
   building_id   bigint not null references buildings(id) on delete cascade,
+  external_id   text,                       -- the site's own id for this plan
   name          text not null,              -- the building's own name, e.g. 'Milan'
   beds          numeric(3,1),               -- 0 = studio
   baths         numeric(3,1),
@@ -49,15 +50,18 @@ create table floor_plans (
   image_sha256  text,                       -- detect when a plan image changes
   first_seen_at timestamptz not null default now(),
   last_seen_at  timestamptz not null default now(),
-  unique (building_id, name)
+  unique (building_id, name),
+  unique (building_id, external_id)
 );
 
 create table units (
   id             bigint generated always as identity primary key,
   building_id    bigint not null references buildings(id) on delete cascade,
   floor_plan_id  bigint references floor_plans(id) on delete set null,
-  unit_number    text not null,
+  external_id    text,                      -- the site's own id for this unit
+  unit_number    text,                      -- null until a source reveals it
   floor          int,
+  floor_ref      text,                      -- the site's floor tag when the number isn't known
   is_top_floor   boolean,
   facing         text check (facing in ('N','NE','E','SE','S','SW','W','NW')),
   faces_inward   boolean,                   -- courtyard side of a closed-loop building
@@ -65,7 +69,9 @@ create table units (
   sqft           int,
   first_seen_at  timestamptz not null default now(),
   last_seen_at   timestamptz not null default now(),
-  unique (building_id, unit_number)
+  unique (building_id, unit_number),
+  unique (building_id, external_id),
+  check (unit_number is not null or external_id is not null)
 );
 
 -- ─────────────────────────────────────────────────────────────
@@ -92,6 +98,7 @@ create table availability_snapshots (
   price_from      numeric(10,2),            -- advertised "from" price (often includes required fees)
   base_rent       numeric(10,2),
   lease_months    int,
+  lease_prices    jsonb,                    -- e.g. {"12": 1831, "15": 1819}
   available_on    date,
   observed_at     timestamptz not null default now(),
   check (floor_plan_id is not null or unit_id is not null)
