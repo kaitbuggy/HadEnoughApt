@@ -156,6 +156,32 @@ tbody tr:last-child td{border-bottom:0}
 .note{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 20px}
 .emptybox{border:1px dashed var(--control);border-radius:20px;padding:36px;text-align:center;display:flex;flex-direction:column;gap:10px;align-items:center}
 
+/* layout filters */
+.withside{display:grid;grid-template-columns:260px minmax(0,1fr);gap:40px;align-items:start;margin-top:8px}
+.side{position:sticky;top:96px;display:flex;flex-direction:column;gap:22px}
+.side fieldset{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;min-width:0}
+.side legend{padding:0;margin:0 0 8px}
+.facet{display:flex;align-items:center;gap:12px;width:100%;min-height:48px;padding:6px 12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);cursor:pointer;text-align:left;font-size:15px}
+.facet svg{flex-shrink:0}
+.facet .lbl{flex:1}
+.facet .n{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.facet[aria-pressed="true"]{border:1.5px solid var(--ink);font-weight:500}
+.facet.zero{color:var(--muted)}
+.facets-row{display:flex;flex-wrap:wrap;gap:6px}
+.facets-row .facet{width:auto;min-height:40px;padding:4px 12px 4px 8px;font-size:14px;gap:8px}
+.applied{display:flex;flex-wrap:wrap;gap:6px}
+.appchip{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 10px 0 12px;border-radius:999px;border:1px solid var(--line);background:var(--subtle);font-size:13px;cursor:pointer}
+.appchip span{color:var(--muted);font-size:15px}
+.linkbtn{border:0;background:none;padding:0;font-size:14px;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.tags{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:13px;color:var(--muted)}
+.tags .hit{color:var(--ink);font-weight:600;text-decoration:underline;text-decoration-thickness:1.5px;text-underline-offset:3px}
+.resultsbar{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
+@media (max-width:860px){
+  .withside{grid-template-columns:1fr;gap:24px}
+  .side{position:static}
+  .side fieldset.facetset{display:grid;grid-template-columns:1fr 1fr}
+  .side fieldset.facetset legend{grid-column:1/-1}
+}
 footer{border-top:1px solid var(--line);padding:24px 0 40px;color:var(--muted);font-size:13px}
 
 @media (max-width:860px){
@@ -320,9 +346,61 @@ function nextCheck() {
   return c.sort((a, b) => a - b)[0];
 }
 
+// ---------- floor plan layout labels ----------
+const KITCHEN = [['u_shape', 'U-shape', 'M6 6V22H22V6'], ['l_shape', 'L-shape', 'M6 6V22H22'], ['galley', 'Galley', 'M5 8H23M5 20H23'], ['single_wall', 'One wall', 'M5 8H23']];
+const BATH = [['walkin', 'Walk-in shower', 'M7 5H21V23H7ZM7 5L21 23M21 5L7 23'], ['tub', 'Tub', 'M4 11H24V17A4 4 0 0 1 20 21H8A4 4 0 0 1 4 17Z']];
+const icon = (d) => `<svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true"><path d="${d}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const LBL = new Map();
+for (const l of DATA.labels || []) {
+  const o = LBL.get(l.floor_plan_id) || {};
+  o[l.attribute_key] = l.value; if (l.status === 'pending') o.pending = true;
+  LBL.set(l.floor_plan_id, o);
+}
+function layoutOf(pid) {
+  const o = LBL.get(pid) || {};
+  return { k: o.kitchen_shape ?? null, island: o.kitchen_island ?? null, walkin: o.walk_in_shower ?? null, tub: o.has_tub ?? null, pending: !!o.pending, any: !!LBL.get(pid) };
+}
+const kLabel = (v) => (KITCHEN.find((x) => x[0] === v) || [, v])[1];
+const bLabel = (v) => (BATH.find((x) => x[0] === v) || [, v])[1];
+const bathVal = (L, v) => v === 'walkin' ? L.walkin : L.tub;
+// Within a group: any selected value (OR). Across groups: all must hold (AND).
+function layoutMatch(pid, lay) {
+  const L = layoutOf(pid);
+  const kSet = lay.k.length, bSet = lay.b.length;
+  const kYes = !kSet || lay.k.includes(L.k), kUnknown = kSet && L.k == null;
+  const bYes = !bSet || lay.b.some((v) => bathVal(L, v) === true), bUnknown = bSet && !bYes && lay.b.some((v) => bathVal(L, v) == null);
+  if (kYes && bYes) return 'yes';
+  if ((kYes || kUnknown) && (bYes || bUnknown)) return 'maybe';
+  return 'no';
+}
+const LAY = store.get('layout', { k: [], b: [] });
+LAY.k = LAY.k || []; LAY.b = LAY.b || [];
+const layActive = () => LAY.k.length + LAY.b.length > 0;
+const layWords = (lay) => [...lay.k.map((v) => kLabel(v) + ' kitchen'), ...lay.b.map((v) => bLabel(v).toLowerCase())].join(' + ');
+function facetButtons(group, list, countFor) {
+  return list.map(([v, label, d]) => {
+    const on = LAY[group].includes(v), n = countFor(v);
+    return `<button type="button" class="facet${n ? '' : ' zero'}" aria-pressed="${on}" data-lay="${group}:${v}">${icon(d)}<span class="lbl">${esc(label)}</span><span class="n" aria-label="${n} matching">${n}</span></button>`;
+  }).join('');
+}
+function layoutTags(pid) {
+  const L = layoutOf(pid);
+  if (!L.any) return '<span class="tags"><span>Layout not labeled yet</span></span>';
+  const k = L.k ? `<span class="${LAY.k.includes(L.k) ? 'hit' : ''}">${esc(kLabel(L.k))} kitchen${L.island ? ' + island' : ''}</span>` : '';
+  const baths = [L.walkin ? ['walkin', 'Walk-in shower'] : null, L.tub ? ['tub', 'Tub'] : null].filter(Boolean);
+  const b = baths.length ? baths.map(([v, t]) => `<span class="${LAY.b.includes(v) ? 'hit' : ''}">${t}</span>`).join('') : (L.walkin == null ? '<span>Bathroom not labeled yet</span>' : '');
+  return `<span class="tags">${k}${b}</span>`;
+}
+
 // ---------- watchlist ----------
-let W = store.get('watch', { unit: {}, plan: {}, building: {} });
-for (const k of ['unit', 'plan', 'building']) W[k] = W[k] || {};
+let W = store.get('watch', { unit: {}, plan: {}, building: {}, search: {} });
+for (const k of ['unit', 'plan', 'building', 'search']) W[k] = W[k] || {};
+const searchKey = (lay) => [...lay.k].sort().join(',') + '|' + [...lay.b].sort().join(',');
+function toggleSearch() {
+  const key = searchKey(LAY);
+  if (W.search[key]) delete W.search[key]; else W.search[key] = { k: [...LAY.k], b: [...LAY.b], at: Date.now() };
+  store.set('watch', W); updateHeader();
+}
 const watching = (kind, id) => !!W[kind][id];
 function toggleWatch(kind, id) {
   if (W[kind][id]) delete W[kind][id]; else W[kind][id] = Date.now();
@@ -342,11 +420,17 @@ function watchEvents() {
       if (w.max_rent_seen && w.min_rent_seen && w.min_rent_seen < w.max_rent_seen && !w.closed_at) push({ at: LU.get(id)?.observed_at || w.opened_at, kind: 'PRICE DROP', color: 'var(--okFg)', u, detail: money(w.max_rent_seen) + ' → ' + money(w.min_rent_seen) });
     }
   }
+  for (const [key, srch] of Object.entries(W.search)) {
+    for (const u of DATA.units) {
+      if (unitIds.has(u.id) || layoutMatch(u.floor_plan_id, srch) !== 'yes') continue;
+      for (const w of winU.get(u.id) || []) if (new Date(w.opened_at).getTime() > srch.at) push({ at: w.opened_at, kind: 'MATCHES YOUR SEARCH', color: 'var(--accent)', u, detail: join(layWords(srch), unitRent(u) && !w.closed_at ? money(unitRent(u).rent) : null) });
+    }
+  }
   return ev.sort((a, b) => new Date(b.at) - new Date(a.at)).slice(0, 40);
 }
 const seenAt = () => store.get('seen', 0);
 function updateHeader() {
-  const n = Object.keys(W.unit).length + Object.keys(W.plan).length + Object.keys(W.building).length;
+  const n = Object.keys(W.unit).length + Object.keys(W.plan).length + Object.keys(W.building).length + Object.keys(W.search).length;
   document.getElementById('wcount').textContent = n;
   const fresh = watchEvents().filter((e) => new Date(e.at).getTime() > seenAt()).length;
   document.getElementById('wnew').textContent = fresh ? '· ' + fresh + ' new' : '';
@@ -357,7 +441,16 @@ function watchBtn(kind, id, label) {
 }
 document.addEventListener('click', (e) => {
   const b = e.target.closest('[data-watch]');
-  if (b) { const [k, id] = b.dataset.watch.split(':'); toggleWatch(k, Number(id)); render(); return; }
+  if (b) { const [k, ...rest] = b.dataset.watch.split(':'); const id = rest.join(':'); if (k === 'search') { delete W.search[id]; store.set('watch', W); updateHeader(); } else toggleWatch(k, Number(id)); render(); return; }
+  if (e.target.closest('[data-wsearch]')) { toggleSearch(); render(); return; }
+  const l = e.target.closest('[data-lay]');
+  if (l) {
+    const [g, v] = l.dataset.lay.split(':');
+    if (g === 'clear') { LAY.k = []; LAY.b = []; }
+    else if (g === 'clearall') { LAY.k = []; LAY.b = []; bFilt.beds = 'any'; bFilt.avail = false; }
+    else LAY[g] = LAY[g].includes(v) ? LAY[g].filter((x) => x !== v) : [...LAY[g], v];
+    store.set('layout', LAY); render(); return;
+  }
   const x = e.target.closest('[data-expand]');
   if (x) { const id = x.dataset.expand; expanded.has(id) ? expanded.delete(id) : expanded.add(id); render(); }
 });
@@ -408,6 +501,10 @@ function pageHome() {
   if (filt.b !== 'all') list = list.filter((x) => String(x.u.building_id) === filt.b);
   if (filt.beds !== 'any') list = list.filter((x) => x.p && (filt.beds === '2' ? x.p.beds >= 2 : String(x.p.beds) === filt.beds));
   if (filt.max !== 'any') list = list.filter((x) => x.r?.rent && x.r.rent <= Number(filt.max));
+  const beforeLayout = list;
+  const homeCount = (group, v) => beforeLayout.filter((x) => layoutMatch(x.u.floor_plan_id, { ...LAY, [group]: [v] }) === 'yes').length;
+  const maybeHome = layActive() ? beforeLayout.filter((x) => layoutMatch(x.u.floor_plan_id, LAY) === 'maybe').length : 0;
+  if (layActive()) list = list.filter((x) => layoutMatch(x.u.floor_plan_id, LAY) === 'yes');
   list.sort(filt.sort === 'low' ? (a, b) => (a.r?.rent ?? 1e9) - (b.r?.rent ?? 1e9) : filt.sort === 'soon' ? (a, b) => String(a.r?.on || '9').localeCompare(String(b.r?.on || '9')) : (a, b) => new Date(b.w.opened_at) - new Date(a.w.opened_at) || (a.r?.rent ?? 0) - (b.r?.rent ?? 0));
   const shown = list.slice(0, feedLimit);
   const chip = (k, v, label) => `<button type="button" class="chip" aria-pressed="${filt[k] === v}" data-f="${k}:${v}">${esc(label)}</button>`;
@@ -427,11 +524,18 @@ function pageHome() {
     <div class="fgroup"><span class="flabel" id="fb">Building</span><div class="chips" role="group" aria-labelledby="fb">${chip('b', 'all', 'All')}${tracked.map((b) => chip('b', String(b.id), b.name)).join('')}</div></div>
     <div class="fgroup"><span class="flabel" id="fbd">Bedrooms</span><div class="chips" role="group" aria-labelledby="fbd">${chip('beds', 'any', 'Any')}${chip('beds', '0', 'Studio')}${chip('beds', '1', '1')}${chip('beds', '2', '2+')}</div></div>
     <div class="fgroup"><label class="flabel" for="fmax">Max rent</label><select id="fmax" data-fsel="max">${['any', '1500', '2000', '2500', '3000', '4000'].map((v) => `<option value="${v}" ${filt.max === v ? 'selected' : ''}>${v === 'any' ? 'Any' : money(Number(v))}</option>`).join('')}</select></div>
+    <div class="fgroup"><span class="flabel" id="fk">Kitchen shape</span><div class="facets-row" role="group" aria-labelledby="fk">${facetButtons('k', KITCHEN, (v) => homeCount('k', v))}</div></div>
+    <div class="fgroup"><span class="flabel" id="fbt">Bathroom</span><div class="facets-row" role="group" aria-labelledby="fbt">${facetButtons('b', BATH, (v) => homeCount('b', v))}</div></div>
     <div class="fgroup"><span class="flabel" id="fs">Sort</span><div class="chips" role="group" aria-labelledby="fs">${chip('sort', 'new', 'Newest')}${chip('sort', 'low', 'Lowest rent')}${chip('sort', 'soon', 'Soonest move-in')}</div></div>
   </section>
   <section aria-labelledby="feedh" class="stack" style="gap:14px">
-    <h2 id="feedh" style="font-size:28px">${list.length} ${list.length === 1 ? 'opening' : 'openings'}</h2>
-    ${list.length ? '' : `<div class="emptybox"><strong>Nothing matches these filters.</strong><span class="muted">Try a higher max rent or another building.</span><button type="button" class="btn sm" data-f="reset:1">Clear filters</button></div>`}
+    <div class="resultsbar">
+      <h2 id="feedh" style="font-size:28px" aria-live="polite">${list.length} ${list.length === 1 ? 'opening' : 'openings'}${layActive() ? ' with ' + esc(layWords(LAY)) : ''}</h2>
+      ${layActive() ? searchBtn() : ''}
+    </div>
+    ${layActive() ? `<div class="applied" aria-label="Applied layout filters">${appliedChips()}<button type="button" class="linkbtn" data-lay="clear">Clear layout</button></div>` : ''}
+    ${maybeHome ? `<p class="small muted" style="margin:0">${maybeHome} more ${maybeHome === 1 ? 'unit is' : 'units are'} on plans whose layout isn't labeled yet.</p>` : ''}
+    ${list.length ? '' : layActive() ? emptyLayout('in the buildings we track right now') : `<div class="emptybox"><strong>Nothing matches these filters.</strong><span class="muted">Try a higher max rent or another building.</span><button type="button" class="btn sm" data-f="reset:1">Clear filters</button></div>`}
     <div class="feed">${shown.map(({ u, w, r, p }) => {
       const b = B.get(u.building_id);
       return `<article class="card feeditem">
@@ -440,6 +544,7 @@ function pageHome() {
           <div class="small muted">${esc(listedLabel(w.opened_at))}${u.is_top_floor ? ' · <span class="pill acc">Top floor</span>' : ''}</div>
           <a class="ftitle" href="#/unit/${u.id}">${esc(unitName(u))} · ${esc(p?.name || 'Floor plan')}</a>
           <span class="small muted">${esc(join(b?.name, p && bedLabel(p.beds), p && bathLabel(p.baths), (u.sqft || p?.sqft_min) && (u.sqft || p.sqft_min) + ' sq ft', u.floor && 'floor ' + u.floor))}</span>
+          ${p ? layoutTags(p.id) : ''}
         </div>
         <div class="fright">
           <div><div class="rent">${money(r?.rent)}</div><div class="small muted" style="text-align:right">${esc(join(r?.months && r.months + ' mo', r?.on && moveIn(r.on)))}</div></div>
@@ -451,6 +556,18 @@ function pageHome() {
   </section>`;
 }
 let feedLimit = 20;
+function searchBtn() {
+  const on = !!W.search[searchKey(LAY)];
+  return `<button type="button" class="btn ${on ? 'watching' : ''}" data-wsearch="1" aria-pressed="${on}">${on ? '★ Watching this search' : '☆ Watch this search'}</button>`;
+}
+function appliedChips() {
+  return [...LAY.k.map((v) => [`k:${v}`, kLabel(v) + ' kitchen']), ...LAY.b.map((v) => [`b:${v}`, bLabel(v)])]
+    .map(([key, label]) => `<button type="button" class="appchip" data-lay="${key}" aria-label="Remove filter: ${esc(label)}">${esc(label)}<span aria-hidden="true">×</span></button>`).join('');
+}
+function emptyLayout(where) {
+  const on = !!W.search[searchKey(LAY)];
+  return `<div class="emptybox" style="align-items:flex-start;text-align:left"><strong style="font-family:var(--serif);font-size:24px;font-weight:400">No ${esc(layWords(LAY))} ${esc(where)}</strong><span class="muted">Watch this search and your Watchlist shows the first unit with this layout in any building we track.</span><div style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" class="btn ${on ? 'watching' : 'primary'}" data-wsearch="1" aria-pressed="${on}">${on ? '★ Watching for ' : '☆ Watch for '}${esc(layWords(LAY))}</button><button type="button" class="btn" data-lay="clear">Clear layout filters</button></div></div>`;
+}
 
 function pageBuildings() {
   return `
@@ -472,13 +589,28 @@ const bFilt = { beds: 'any', avail: false };
 function pageBuilding(id) {
   const b = B.get(id); if (!b) return notFound();
   const st = buildingStatus(b);
-  let plans = plansOfBuilding(id).map((p) => ({ p, a: planAvail(p) }));
+  const allPlans = plansOfBuilding(id).map((p) => ({ p, a: planAvail(p) }));
   const units = unitsOfBuilding(id), av = units.filter(unitOpen).length;
-  const unlisted = plans.filter((x) => !x.a.count).length;
-  if (bFilt.beds !== 'any') plans = plans.filter(({ p }) => bFilt.beds === '2' ? p.beds >= 2 : String(p.beds) === bFilt.beds);
-  if (bFilt.avail) plans = plans.filter(({ a }) => a.count);
-  plans.sort((x, y) => (y.a.count > 0) - (x.a.count > 0) || (x.p.beds ?? 0) - (y.p.beds ?? 0) || (x.a.from ?? 1e9) - (y.a.from ?? 1e9));
+  const unlisted = allPlans.filter((x) => !x.a.count).length;
+  const passBase = ({ p, a }) => (bFilt.beds === 'any' || (bFilt.beds === '2' ? p.beds >= 2 : String(p.beds) === bFilt.beds)) && (!bFilt.avail || a.count);
+  const base = allPlans.filter(passBase);
+  const count = (group, v) => base.filter(({ p }) => layoutMatch(p.id, { ...LAY, [group]: [v] }) === 'yes').length;
+  const sort = (xs) => xs.sort((x, y) => (y.a.count > 0) - (x.a.count > 0) || (x.p.beds ?? 0) - (y.p.beds ?? 0) || (x.a.from ?? 1e9) - (y.a.from ?? 1e9));
+  const plans = sort(base.filter(({ p }) => layoutMatch(p.id, LAY) === 'yes'));
+  const maybe = sort(base.filter(({ p }) => layoutMatch(p.id, LAY) === 'maybe'));
+  const anyFilter = layActive() || bFilt.beds !== 'any' || bFilt.avail;
   const chip = (k, v, label) => `<button type="button" class="chip" aria-pressed="${bFilt[k] === v}" data-bf="${k}:${v}">${esc(label)}</button>`;
+  const tile = ({ p, a }) => `<a class="card tile" href="#/plan/${p.id}">
+      <div class="img">${planImg(p)}</div>
+      <div class="body">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><span class="name">${esc(p.name)}</span><span class="pill ${a.count ? 'ok' : 'off'}">${a.count ? a.count + ' available' : 'Not listed'}</span></div>
+        <span class="small muted">${esc(join(bedLabel(p.beds), bathLabel(p.baths), sqftLabel(p.sqft_min, p.sqft_max)))}</span>
+        ${layoutTags(p.id)}
+        <span style="font-weight:500">${a.from ? 'From ' + money(a.from) : '<span class="muted">Last seen ' + esc(fmtDate(p.last_seen_at)) + '</span>'}</span>
+      </div></a>`;
+  const bedChips = [];
+  if (bFilt.beds !== 'any') bedChips.push(`<button type="button" class="appchip" data-bf="beds:any" aria-label="Remove filter: bedrooms">${bFilt.beds === '0' ? 'Studio' : bFilt.beds === '2' ? '2+ beds' : '1 bed'}<span aria-hidden="true">×</span></button>`);
+  if (bFilt.avail) bedChips.push(`<button type="button" class="appchip" data-bf="avail:toggle" aria-label="Remove filter: available now">Available now<span aria-hidden="true">×</span></button>`);
   return `
   <div class="crumbs"><a href="#/buildings">Buildings</a> · ${esc(b.city)}</div>
   <div style="display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:flex-end">
@@ -489,21 +621,26 @@ function pageBuilding(id) {
   <section class="stats" aria-label="Building summary">
     <div><div class="stat">${units.length}</div><div class="small muted">units seen so far</div></div>
     <div><div class="stat">${av}</div><div class="small muted">available now</div></div>
-    <div><div class="stat">${plansOfBuilding(id).length}</div><div class="small muted">floor plans, ${unlisted} not listed now</div></div>
+    <div><div class="stat">${allPlans.length}</div><div class="small muted">floor plans, ${unlisted} not listed now</div></div>
     <div><div class="stat">${fmtTime(RUN.get(id).finished_at || RUN.get(id).started_at)}</div><div class="small muted">last checked, twice daily</div></div>
   </section>
-  <section class="filters" aria-label="Filters">
-    <div class="chips" role="group" aria-label="Bedrooms">${chip('beds', 'any', 'All plans')}${chip('beds', '0', 'Studio')}${chip('beds', '1', '1 bed')}${chip('beds', '2', '2+ beds')}</div>
-    <div class="chips"><button type="button" class="chip" aria-pressed="${bFilt.avail}" data-bf="avail:toggle">Available now</button></div>
-  </section>
-  ${plans.length ? '' : `<div class="emptybox"><strong>No floor plans match.</strong><button type="button" class="btn sm" data-bf="reset:1">Show all plans</button></div>`}
-  <div class="grid">${plans.map(({ p, a }) => `<a class="card tile" href="#/plan/${p.id}">
-      <div class="img">${planImg(p)}</div>
-      <div class="body">
-        <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><span class="name">${esc(p.name)}</span><span class="pill ${a.count ? 'ok' : 'off'}">${a.count ? a.count + ' available' : 'Not listed'}</span></div>
-        <span class="small muted">${esc(join(bedLabel(p.beds), bathLabel(p.baths), sqftLabel(p.sqft_min, p.sqft_max)))}</span>
-        <span style="font-weight:500">${a.from ? 'From ' + money(a.from) : '<span class="muted">Last seen ' + esc(fmtDate(p.last_seen_at)) + '</span>'}</span>
-      </div></a>`).join('')}</div>`
+  <div class="withside">
+    <aside class="side" aria-label="Filter floor plans">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><h2 style="font-size:24px">Filters</h2>${anyFilter ? '<button type="button" class="linkbtn" data-lay="clearall">Clear all</button>' : ''}</div>
+      <fieldset class="facetset"><legend class="flabel">Kitchen shape</legend>${facetButtons('k', KITCHEN, (v) => count('k', v))}</fieldset>
+      <fieldset class="facetset"><legend class="flabel">Bathroom</legend>${facetButtons('b', BATH, (v) => count('b', v))}</fieldset>
+      <fieldset><legend class="flabel">Bedrooms</legend><div class="chips">${chip('beds', 'any', 'Any')}${chip('beds', '0', 'Studio')}${chip('beds', '1', '1')}${chip('beds', '2', '2+')}</div></fieldset>
+      <fieldset><legend class="flabel">Availability</legend><div class="chips"><button type="button" class="chip" aria-pressed="${bFilt.avail}" data-bf="avail:toggle">Available now</button></div></fieldset>
+      <p class="small muted" style="margin:0">Kitchens and bathrooms are labeled from each floor plan image and haven't all been checked yet.</p>
+    </aside>
+    <section class="stack" style="gap:16px;min-width:0" aria-label="Floor plans">
+      <div class="resultsbar"><p style="margin:0" aria-live="polite"><strong>${plans.length}</strong> <span class="muted">of ${allPlans.length} floor plans</span></p>${layActive() ? searchBtn() : ''}</div>
+      ${anyFilter ? `<div class="applied" aria-label="Applied filters">${appliedChips()}${bedChips.join('')}</div>` : ''}
+      ${plans.length ? '' : layActive() ? emptyLayout('at ' + b.name + ' right now') : `<div class="emptybox"><strong>No floor plans match.</strong><button type="button" class="btn sm" data-lay="clearall">Clear filters</button></div>`}
+      <div class="grid">${plans.map(tile).join('')}</div>
+      ${maybe.length ? `<div class="stack" style="gap:12px;border-top:1px solid var(--line);padding-top:18px"><div><h3 style="font-size:22px">Might match</h3><p class="small muted" style="margin:4px 0 0">${maybe.length === 1 ? "This plan's layout isn't labeled yet, so check its plan before ruling it out." : "These plans' layouts aren't labeled yet, so check their plans before ruling them out."}</p></div><div class="grid">${maybe.map(tile).join('')}</div></div>` : ''}
+    </section>
+  </div>`
   : `<div class="note" style="margin-top:28px"><strong>${esc(st.text)}.</strong> <span class="muted">You can still watch it; once it's connected, its units show up here and on your Watchlist.</span></div>`}`;
 }
 
@@ -519,7 +656,7 @@ function pagePlan(id) {
     <section class="planimg" aria-label="Floor plan">${planImg(p)}</section>
     <section class="stack" style="gap:24px">
       <div style="display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end">
-        <div><h1 class="display">${esc(p.name)}</h1><p class="muted" style="margin:6px 0 0">${esc(join(bedLabel(p.beds), bathLabel(p.baths), sqftLabel(p.sqft_min, p.sqft_max)))}</p></div>
+        <div><h1 class="display">${esc(p.name)}</h1><p class="muted" style="margin:6px 0 0">${esc(join(bedLabel(p.beds), bathLabel(p.baths), sqftLabel(p.sqft_min, p.sqft_max)))}</p><div style="margin-top:6px">${layoutTags(p.id)}</div>${layoutOf(p.id).pending ? '<p class="small muted" style="margin:4px 0 0">Layout labeled from the plan image; not checked yet.</p>' : ''}</div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">${siteLink(b) ? `<a class="btn" href="${esc(siteLink(b))}" target="_blank" rel="noopener">See ${esc(p.name)} on the building site ↗</a>` : ''}${watchBtn('plan', p.id, p.name)}</div>
       </div>
       <div class="stats three" style="margin:0">
@@ -601,6 +738,7 @@ function pageWatchlist() {
   const items = [
     ...Object.keys(W.unit).map((id) => { const u = U.get(+id); if (!u) return null; const o = unitOpen(u); return { kind: 'UNIT', name: unitName(u) + (P.get(u.floor_plan_id) ? ' · ' + P.get(u.floor_plan_id).name : ''), rule: B.get(u.building_id)?.name + ' · every change', status: o ? 'Available' : 'Not listed', ok: !!o, href: '#/unit/' + u.id, key: 'unit:' + id }; }),
     ...Object.keys(W.plan).map((id) => { const p = P.get(+id); if (!p) return null; const a = planAvail(p); return { kind: 'FLOOR PLAN', name: p.name, rule: B.get(p.building_id)?.name + ' · any unit', status: a.count ? a.count + ' available' : 'Not listed', ok: !!a.count, href: '#/plan/' + p.id, key: 'plan:' + id }; }),
+    ...Object.entries(W.search).map(([key, srch]) => { const n = DATA.units.filter((u) => unitOpen(u) && layoutMatch(u.floor_plan_id, srch) === 'yes').length; return { kind: 'SEARCH', name: layWords(srch) || 'Any layout', rule: 'Any building we track', status: n + ' available', ok: n > 0, href: '#/', key: 'search:' + key }; }),
     ...Object.keys(W.building).map((id) => { const b = B.get(+id); if (!b) return null; const n = unitsOfBuilding(b.id).filter(unitOpen).length; return { kind: 'BUILDING', name: b.name, rule: 'Any unit', status: RUN.has(b.id) ? n + ' available' : 'Not tracked yet', ok: n > 0, href: '#/building/' + b.id, key: 'building:' + id }; }),
   ].filter(Boolean);
   return `
