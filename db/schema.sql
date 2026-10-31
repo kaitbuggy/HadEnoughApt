@@ -29,6 +29,7 @@ create table buildings (
   lng              double precision,
   website_url      text,
   availability_url text,                    -- the page the scraper reads
+  sightmap_url     text,                    -- SightMap embed, for unit numbers and floors
   platform         text,                    -- 'griffis-engrain', 'sightmap', 'rentcafe', 'entrata', 'manual', ...
   management       text,
   year_built       int,
@@ -60,16 +61,17 @@ create table units (
   floor_plan_id  bigint references floor_plans(id) on delete set null,
   external_id    text,                      -- the site's own id for this unit
   unit_number    text,                      -- null until a source reveals it
+  section        text,                      -- sub-building, when a complex has several
   floor          int,
   floor_ref      text,                      -- the site's floor tag when the number isn't known
   is_top_floor   boolean,
   facing         text check (facing in ('N','NE','E','SE','S','SW','W','NW')),
   faces_inward   boolean,                   -- courtyard side of a closed-loop building
   view_of        text,                      -- 'park', 'street', 'courtyard', 'another building', 'skyline'...
+  view_image_url text,                      -- photo of the view from the unit, when the building publishes one
   sqft           int,
   first_seen_at  timestamptz not null default now(),
   last_seen_at   timestamptz not null default now(),
-  unique (building_id, unit_number),
   unique (building_id, external_id),
   check (unit_number is not null or external_id is not null)
 );
@@ -209,13 +211,25 @@ create table watches (
   check (num_nonnulls(building_id, floor_plan_id, unit_id) = 1)
 );
 
-create table alerts_sent (
-  id         bigint generated always as identity primary key,
-  watch_id   bigint not null references watches(id) on delete cascade,
-  window_id  bigint not null references availability_windows(id) on delete cascade,
-  sent_at    timestamptz not null default now(),
-  unique (watch_id, window_id)              -- never alert twice for the same opening
+-- In-site notifications: what changed for each visitor's watches.
+-- Shown as a bell on the website; email is a later, opt-in extra.
+create table notifications (
+  id            bigint generated always as identity primary key,
+  user_id       uuid not null references users(id) on delete cascade,
+  watch_id      bigint references watches(id) on delete cascade,
+  kind          text not null check (kind in ('listed','price_drop','leased')),
+  building_id   bigint references buildings(id) on delete cascade,
+  floor_plan_id bigint references floor_plans(id) on delete cascade,
+  unit_id       bigint references units(id) on delete cascade,
+  window_id     bigint references availability_windows(id) on delete set null,
+  title         text not null,              -- "Unit 1211 · Milan is available"
+  detail        jsonb,                      -- {"rent":1428,"previous_rent":1468,"available_on":"2026-12-03"}
+  dedupe_key    text not null,              -- one notification per event per watch
+  created_at    timestamptz not null default now(),
+  seen_at       timestamptz,                -- null = unread
+  unique (watch_id, dedupe_key)
 );
+create index on notifications (user_id, created_at desc);
 
 create table criteria (
   user_id uuid not null references users(id) on delete cascade,
