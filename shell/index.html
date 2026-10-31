@@ -1,0 +1,384 @@
+<title>Unit Tracker</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: drafting-table app shell. Left rail of views, a vellum work surface, data set in mono like dimension callouts. */
+:root{
+  --paper:#eef1ef; --sheet:#fbfcfb; --ink:#1d2326; --graphite:#5b666b; --rule:#d3dad7;
+  --pencil:#2b55c7; --pencil-soft:#e2e9fb;
+  --ok:#1f7a4d; --ok-soft:#dcf0e4; --warn:#a2610b; --warn-soft:#f8ebd5; --off:#8a9599; --off-soft:#e6eae9;
+  --display:"Archivo",ui-sans-serif,system-ui,sans-serif;
+  --body:"Archivo",ui-sans-serif,system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#14181a; --sheet:#1b2023; --ink:#e4e9e7; --graphite:#98a4a8; --rule:#2e3639;
+  --pencil:#86a6ff; --pencil-soft:#1f2b4a;
+  --ok:#6fd19d; --ok-soft:#163626; --warn:#f0b35c; --warn-soft:#3a2b14; --off:#7b878b; --off-soft:#242b2e; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#14181a; --sheet:#1b2023; --ink:#e4e9e7; --graphite:#98a4a8; --rule:#2e3639;
+  --pencil:#86a6ff; --pencil-soft:#1f2b4a;
+  --ok:#6fd19d; --ok-soft:#163626; --warn:#f0b35c; --warn-soft:#3a2b14; --off:#7b878b; --off-soft:#242b2e; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5}
+.app{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:100vh}
+nav{border-right:1px solid var(--rule);padding:24px 16px;display:flex;flex-direction:column;gap:4px;position:sticky;top:0;height:100vh}
+.brand{font-family:var(--display);font-variation-settings:"wdth" 70;font-weight:800;font-size:26px;letter-spacing:.01em;line-height:1;margin:0 8px 4px}
+.brand-sub{font-family:var(--mono);font-size:11px;color:var(--graphite);margin:0 8px 20px;letter-spacing:.04em}
+nav a{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:6px;color:var(--ink);text-decoration:none;font-weight:500}
+nav a:hover{background:var(--off-soft)}
+nav a[aria-current="page"]{background:var(--pencil-soft);color:var(--pencil)}
+nav a .n{font-family:var(--mono);font-size:11px;color:var(--graphite)}
+.navfoot{margin-top:auto;font-size:12px;color:var(--graphite);padding:8px}
+main{padding-block:32px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));min-width:0}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:24px}
+h1{font-family:var(--display);font-variation-settings:"wdth" 75;font-weight:750;font-size:34px;line-height:1.1;margin:0;text-wrap:balance}
+h2{font-family:var(--display);font-variation-settings:"wdth" 85;font-weight:700;font-size:19px;margin:0;text-wrap:balance}
+.lede{color:var(--graphite);max-width:64ch;margin:6px 0 0}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--graphite)}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.sheet{background:var(--sheet);border:1px solid var(--rule);border-radius:10px}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.p-ok{background:var(--ok-soft);color:var(--ok)} .p-warn{background:var(--warn-soft);color:var(--warn)} .p-off{background:var(--off-soft);color:var(--off)} .p-pencil{background:var(--pencil-soft);color:var(--pencil)}
+.example{font-family:var(--mono);font-size:11px;color:var(--warn);border:1px dashed var(--warn);border-radius:4px;padding:1px 6px;white-space:nowrap}
+button{font:inherit;cursor:pointer;border-radius:6px;border:1px solid var(--rule);background:var(--sheet);color:var(--ink);padding:6px 12px;font-weight:600}
+button:hover{border-color:var(--graphite)}
+button.primary{background:var(--pencil);border-color:var(--pencil);color:var(--sheet)}
+button:focus-visible,a:focus-visible,select:focus-visible{outline:2px solid var(--pencil);outline-offset:2px}
+
+/* Buildings */
+.bgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.bcard{padding:20px;display:flex;flex-direction:column;gap:12px}
+.bcard header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13px;margin:0}
+.facts dt{color:var(--graphite)} .facts dd{margin:0}
+.bcard .note{font-size:13px;color:var(--graphite);margin:0}
+.bcard footer{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto}
+
+/* Plans */
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chip{border-radius:999px;padding:4px 12px;font-size:13px;font-weight:500}
+.chip[aria-pressed="true"]{background:var(--pencil-soft);border-color:var(--pencil);color:var(--pencil)}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:720px}
+th{text-align:left;font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--graphite);padding:12px 14px;border-bottom:1px solid var(--rule)}
+td{padding:12px 14px;border-bottom:1px solid var(--rule);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.unknown{color:var(--off);font-family:var(--mono);font-size:12px}
+.watch{background:none;border:0;padding:4px;font-size:18px;line-height:1;color:var(--off)}
+.watch[aria-pressed="true"]{color:var(--pencil)}
+
+/* History */
+.hist{padding:20px;display:flex;flex-direction:column;gap:14px}
+.hist-head{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.stat{border-left:2px solid var(--rule);padding-left:12px}
+.stat b{display:block;font-family:var(--mono);font-size:20px;font-weight:500}
+.stat span{font-size:12px;color:var(--graphite)}
+.timeline svg{width:100%;height:auto;display:block}
+
+/* Review */
+.review{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:16px}
+.plan{padding:16px;display:flex;flex-direction:column;gap:10px}
+.plan svg{width:100%;height:auto;max-width:100%;display:block}
+.labels{padding:20px;display:flex;flex-direction:column;gap:12px}
+.lab{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;padding:12px;border:1px solid var(--rule);border-radius:8px;align-items:center}
+.lab .q{font-weight:600}
+.lab .ev{grid-column:1/-1;font-size:13px;color:var(--graphite)}
+.lab .acts{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.conf{font-family:var(--mono);font-size:12px;color:var(--graphite)}
+.lab.done{background:var(--off-soft)}
+select{font:inherit;padding:5px 8px;border-radius:6px;border:1px solid var(--rule);background:var(--sheet);color:var(--ink)}
+
+/* Model */
+.model{padding:20px;overflow-x:auto}
+.entities{display:grid;grid-template-columns:repeat(3,minmax(200px,1fr));gap:12px;min-width:640px}
+.ent{border:1px solid var(--rule);border-radius:8px;padding:12px;background:var(--paper)}
+.ent h3{font-family:var(--mono);font-size:13px;font-weight:500;margin:0 0 6px;color:var(--pencil)}
+.ent p{font-size:13px;margin:0;color:var(--graphite)}
+.ent.key{border-color:var(--pencil)}
+
+/* Roadmap */
+.phases{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.phase{padding:16px;display:flex;flex-direction:column;gap:8px}
+.phase.now{border-color:var(--pencil)}
+.phase ul{margin:0;padding-left:18px;font-size:13px;color:var(--graphite);display:flex;flex-direction:column;gap:3px}
+.checks{padding:20px;display:flex;flex-direction:column;gap:2px}
+.check{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--rule)}
+.check:last-child{border-bottom:0}
+.box{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--off);display:grid;place-items:center;font-size:11px;color:var(--sheet)}
+.box.on{background:var(--ok);border-color:var(--ok)}
+.box.mid{border-color:var(--pencil);background:var(--pencil-soft)}
+
+@media (max-width:820px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;height:auto;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;border-right:0;border-bottom:1px solid var(--rule);background:var(--paper);padding:10px max(16px,env(safe-area-inset-right,0px)) 10px max(16px,env(safe-area-inset-left,0px));align-items:center}
+  body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--paper)}
+  .brand{font-size:20px;margin:0 12px 0 0}.brand-sub,.navfoot,nav a .n{display:none}
+  nav a{white-space:nowrap}
+  .bgrid,.review{grid-template-columns:minmax(0,1fr)}
+  .phases{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:480px){.phases{grid-template-columns:minmax(0,1fr)} h1{font-size:28px}}
+@media (prefers-reduced-motion:no-preference){.view{animation:in .25s ease-out}@keyframes in{from{transform:translateY(4px)}to{transform:none}}}
+</style>
+
+<div class="app">
+  <nav aria-label="Views">
+    <div class="brand">Unit Tracker</div>
+    <div class="brand-sub">AUSTIN · PHASE 1</div>
+    <a href="#buildings">Buildings <span class="n">4</span></a>
+    <a href="#plans">Floor plans <span class="n">17</span></a>
+    <a href="#review">Review queue <span class="n" id="qcount">4</span></a>
+    <a href="#model">Data model</a>
+    <a href="#roadmap">Roadmap</a>
+    <div class="navfoot">Shell only: nothing is live yet.</div>
+  </nav>
+
+  <main>
+    <!-- BUILDINGS -->
+    <section class="view wrap" id="v-buildings">
+      <div>
+        <div class="eyebrow">Watching in Austin</div>
+        <h1>Buildings</h1>
+        <p class="lede">The four buildings in the database so far. A building becomes trackable once its availability page is linked and a scraper can read it.</p>
+      </div>
+      <div class="bgrid" id="bgrid"></div>
+    </section>
+
+    <!-- PLANS -->
+    <section class="view wrap" id="v-plans" hidden>
+      <div>
+        <div class="eyebrow">Griffis at The Domain</div>
+        <h1>Floor plans</h1>
+        <p class="lede">Prices and sizes for Shanghai, Milan and London come from the Griffis availability page on Oct 30. The rest are plan names only until the scraper's first run. Layout columns fill in as you review labels.</p>
+      </div>
+      <div class="toolbar" role="group" aria-label="Filter">
+        <button class="chip" aria-pressed="false" data-f="avail" id="f-avail">Available now</button>
+        <button class="chip" aria-pressed="false" data-f="u" id="f-u">U-shaped kitchen</button>
+        <button class="chip" aria-pressed="false" data-f="shower" id="f-shower">Walk-in shower</button>
+        <button class="chip" aria-pressed="false" data-f="watched" id="f-watched">Watching</button>
+      </div>
+      <div class="sheet tablewrap">
+        <table>
+          <thead><tr><th></th><th>Plan</th><th>Bed / bath</th><th>Sq ft</th><th>Base rent</th><th>Status</th><th>Kitchen</th><th>Shower</th></tr></thead>
+          <tbody id="ptable"></tbody>
+        </table>
+      </div>
+
+      <div class="sheet hist">
+        <div class="hist-head">
+          <h2>Milan · availability history</h2>
+          <span class="example">EXAMPLE: what 3 months of scraping will show</span>
+        </div>
+        <div class="stats">
+          <div class="stat"><b>4</b><span>times listed</span></div>
+          <div class="stat"><b>11 days</b><span>avg. time on market</span></div>
+          <div class="stat"><b>$1,395</b><span>lowest base rent seen</span></div>
+          <div class="stat"><b>2 days ago</b><span>last opened</span></div>
+        </div>
+        <div class="timeline" id="timeline"></div>
+      </div>
+    </section>
+
+    <!-- REVIEW -->
+    <section class="view wrap" id="v-review" hidden>
+      <div>
+        <div class="eyebrow">Model proposes · you decide</div>
+        <h1>Review queue</h1>
+        <p class="lede">When the scraper finds a new floor plan image, a vision model labels it. You accept or correct each label, and every answer becomes training data. <span class="example">EXAMPLE plan drawing</span></p>
+      </div>
+      <div class="review">
+        <div class="sheet plan">
+          <div class="eyebrow">Griffis · "Tokyo" · 1 bed / 1 bath</div>
+          <div id="plansvg"></div>
+        </div>
+        <div class="sheet labels" id="labels"></div>
+      </div>
+    </section>
+
+    <!-- MODEL -->
+    <section class="view wrap" id="v-model" hidden>
+      <div>
+        <div class="eyebrow">db/schema.sql</div>
+        <h1>Data model</h1>
+        <p class="lede">The tables behind the screens. Outlined in blue: the parts no listing site has, which make this tool different.</p>
+      </div>
+      <div class="sheet model">
+        <div class="entities">
+          <div class="ent"><h3>buildings</h3><p>Address, site link, platform the scraper reads, building shape (closed-loop or not).</p></div>
+          <div class="ent"><h3>floor_plans</h3><p>Plan name, beds, baths, sq ft range, image and its fingerprint so changes are caught.</p></div>
+          <div class="ent"><h3>units</h3><p>Unit number, floor, top floor, facing direction, faces the courtyard, what the window looks at.</p></div>
+          <div class="ent key"><h3>availability_windows</h3><p>Every time a plan or unit opens and closes, with rents seen. Answers "when was this last available?"</p></div>
+          <div class="ent key"><h3>labels</h3><p>Kitchen shape, walk-in shower, ADA, bedroom door. Records who said it (model, you, crowd) and whether it's been reviewed.</p></div>
+          <div class="ent key"><h3>watches → alerts_sent</h3><p>"Tell me when Milan opens on floor 4 or above under $1,500." Never alerts twice for the same opening.</p></div>
+          <div class="ent"><h3>fees + household</h3><p>Pet, parking and admin fees, multiplied by the number of pets and cars in your household, for the true monthly cost.</p></div>
+          <div class="ent"><h3>location_scores</h3><p>Coffee within a 10-minute walk, distance to trails, commute minutes to places you choose.</p></div>
+          <div class="ent"><h3>scrape_runs</h3><p>Each check of each site. A failed or changed run tells you the scraper broke.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ROADMAP -->
+    <section class="view wrap" id="v-roadmap" hidden>
+      <div>
+        <div class="eyebrow">Where this is going</div>
+        <h1>Roadmap</h1>
+      </div>
+      <div class="phases">
+        <div class="sheet phase now"><span class="pill p-pencil">Now</span><h2>1 · Just you</h2><ul><li>Austin buildings</li><li>Scraper + history</li><li>Model labels, you review</li><li>Alerts by email</li></ul></div>
+        <div class="sheet phase"><span class="pill p-off">Next</span><h2>2 · Crowdsourcing</h2><ul><li>Accounts</li><li>Others submit and verify labels</li><li>Analytics</li></ul></div>
+        <div class="sheet phase"><span class="pill p-off">Later</span><h2>3 · More cities</h2><ul><li>Seattle, NYC, SF</li><li>Seattle seeded from your old sheet</li></ul></div>
+        <div class="sheet phase"><span class="pill p-off">Later</span><h2>4 · Homes</h2><ul><li>Read layout from listing photos</li><li>MLS data partnerships</li></ul></div>
+      </div>
+      <div class="sheet checks" id="checks"></div>
+    </section>
+  </main>
+</div>
+
+<script>
+const buildings=[
+  {name:"Griffis at The Domain",status:["ok","Ready to scrape"],facts:[["Plans","19 listed, 10 unavailable"],["Site","griffisresidential.com"],["Platform","Engrain-built site"]],note:"Top-floor units face the park. Lists unavailable plans too, so history starts on the first run.",url:"https://griffisresidential.com/property/the-domain/pricing-availability/"},
+  {name:"Solaris House at Uptown ATX",status:["warn","Needs site link"],facts:[["Address","2800 Solaris St"],["Built","2024"]],note:"New building. Popular units leased early.",url:null},
+  {name:"The Grand at the Domain",status:["warn","Needs site link"],facts:[["Address","11009 Alterra Pkwy"],["Built","2019"]],note:"Studio, 1 and 2 bedroom.",url:null},
+  {name:"The Watson",status:["warn","Needs site link"],facts:[["Address","11901 Burnet Rd"],["Plans","Codes like A1.1, B2.3"]],note:"New building. Popular units leased early. WF suffix appears to mean workforce housing.",url:null},
+];
+document.getElementById("bgrid").innerHTML=buildings.map(b=>`
+  <article class="sheet bcard">
+    <header><h2>${b.name}</h2><span class="pill p-${b.status[0]}">${b.status[1]}</span></header>
+    <dl class="facts">${b.facts.map(f=>`<dt>${f[0]}</dt><dd>${f[1]}</dd>`).join("")}</dl>
+    <p class="note">${b.note}</p>
+    <footer>${b.url?`<a href="#plans"><button class="primary" tabindex="-1">See floor plans</button></a><a href="${b.url}" target="_blank" rel="noopener"><button tabindex="-1">Open site ↗</button></a>`:`<button disabled>Waiting on the official site link</button>`}</footer>
+  </article>`).join("");
+
+// Real values from the Griffis page (Oct 30); others are names only.
+const plans=[
+  {n:"Shanghai",bb:"1 / 1.5",sq:"908–1,095",rent:1819,count:1},
+  {n:"Milan",bb:"1 / 1",sq:"673–741",rent:1428,count:7,watched:true},
+  {n:"London",bb:"Studio / 1",sq:"644",rent:null,count:0},
+  ...["Tel Aviv","Dubai","New York","Rome","Los Angeles","Cape Town","Paris","Cordoba","Casablanca","Tokyo","Madrid","Vienna","Hong Kong","Cape Town Platinum","Milan Platinum"].map(n=>({n,pending:true}))
+];
+const labelState={}; // plan -> {kitchen, shower}
+const filters={};
+function renderPlans(){
+  const rows=plans.filter(p=>{
+    if(filters.avail&&!(p.count>0))return false;
+    if(filters.u&&labelState[p.n]?.kitchen!=="U-shaped")return false;
+    if(filters.shower&&labelState[p.n]?.shower!=="Walk-in")return false;
+    if(filters.watched&&!p.watched)return false;
+    return true});
+  const unk='<span class="unknown">not scraped yet</span>';
+  const tbd='<span class="unknown">needs review</span>';
+  document.getElementById("ptable").innerHTML=rows.length?rows.map(p=>{
+    const st=p.pending?'<span class="pill p-off">Unknown</span>':p.count>0?`<span class="pill p-ok">${p.count} available</span>`:'<span class="pill p-off">Unavailable</span>';
+    const L=labelState[p.n]||{};
+    return `<tr>
+      <td><button class="watch" aria-label="Watch ${p.n}" aria-pressed="${!!p.watched}" data-w="${p.n}">${p.watched?"★":"☆"}</button></td>
+      <td><b>${p.n}</b></td>
+      <td class="num">${p.bb||unk}</td><td class="num">${p.sq||(p.pending?unk:"")}</td>
+      <td class="num">${p.rent?"$"+p.rent.toLocaleString():(p.pending?unk:'<span class="unknown">no price while unavailable</span>')}</td>
+      <td>${st}</td><td>${L.kitchen||tbd}</td><td>${L.shower||tbd}</td></tr>`}).join("")
+    :`<tr><td colspan="8" style="color:var(--graphite)">No plans match yet. Layout filters work once you review labels in the Review queue.</td></tr>`;
+}
+document.querySelectorAll(".chip").forEach(c=>c.addEventListener("click",()=>{
+  const on=c.getAttribute("aria-pressed")!=="true";c.setAttribute("aria-pressed",on);filters[c.dataset.f]=on;renderPlans()}));
+document.getElementById("ptable").addEventListener("click",e=>{
+  const b=e.target.closest("[data-w]");if(!b)return;const p=plans.find(x=>x.n===b.dataset.w);p.watched=!p.watched;renderPlans()});
+
+// Example timeline: 90 days, windows open/closed
+(function(){
+  const W=900,H=96,pad=28,days=90,x=d=>pad+(W-2*pad)*(d/days);
+  const wins=[[6,19,1450],[31,38,1430],[55,68,1395],[88,90,1428]];
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Example: Milan was listed four times in 90 days">`;
+  s+=`<line x1="${pad}" y1="44" x2="${W-pad}" y2="44" stroke="var(--rule)" stroke-width="2"/>`;
+  wins.forEach(([a,b,r],i)=>{const open=i===wins.length-1;
+    s+=`<rect x="${x(a)}" y="32" width="${Math.max(x(b)-x(a),6)}" height="24" rx="4" fill="${open?'var(--ok)':'var(--pencil)'}" opacity="${open?1:.8}"/>`;
+    s+=`<text x="${x(a)}" y="22" font-family="IBM Plex Mono,monospace" font-size="12" fill="var(--graphite)">$${r.toLocaleString()}</text>`});
+  [0,30,60,90].forEach(d=>{s+=`<text x="${x(d)}" y="${H-8}" font-family="IBM Plex Mono,monospace" font-size="11" fill="var(--graphite)" text-anchor="${d===0?'start':d===90?'end':'middle'}">${d===90?"today":(90-d)+" days ago"}</text>`});
+  s+=`</svg>`;document.getElementById("timeline").innerHTML=s;
+})();
+
+// Example floor plan drawing with a U-shaped kitchen and walk-in shower
+document.getElementById("plansvg").innerHTML=`
+<svg viewBox="0 0 420 300" role="img" aria-label="Example one-bedroom floor plan with a U-shaped kitchen and a walk-in shower">
+  <g fill="none" stroke="var(--ink)" stroke-width="5" stroke-linecap="square">
+    <rect x="10" y="10" width="400" height="280"/>
+    <line x1="230" y1="10" x2="230" y2="150"/><line x1="230" y1="190" x2="230" y2="290"/>
+    <line x1="230" y1="150" x2="410" y2="150"/>
+    <line x1="10" y1="140" x2="70" y2="140"/><line x1="120" y1="140" x2="130" y2="140"/>
+  </g>
+  <g fill="none" stroke="var(--ink)" stroke-width="1.5">
+    <rect x="20" y="20" width="110" height="22" fill="var(--pencil-soft)" stroke="var(--pencil)"/>
+    <rect x="20" y="42" width="22" height="88" fill="var(--pencil-soft)" stroke="var(--pencil)"/>
+    <rect x="108" y="42" width="22" height="60" fill="var(--pencil-soft)" stroke="var(--pencil)"/>
+    <circle cx="70" cy="31" r="6"/><circle cx="31" cy="80" r="7"/>
+    <rect x="255" y="25" width="140" height="95" rx="3"/>
+    <rect x="310" y="165" width="88" height="50" stroke="var(--pencil)" stroke-dasharray="4 3" fill="var(--pencil-soft)"/>
+    <rect x="245" y="245" width="60" height="30" rx="3"/>
+    <rect x="40" y="200" width="120" height="50" rx="6"/>
+  </g>
+  <g font-family="IBM Plex Mono,monospace" font-size="11" fill="var(--graphite)">
+    <text x="48" y="70">KITCHEN</text><text x="80" y="230">LIVING</text>
+    <text x="290" y="140">BEDROOM</text><text x="245" y="200">BATH</text>
+    <text x="318" y="230" fill="var(--pencil)">SHOWER</text>
+    <text x="300" y="285">11'4" × 12'0"</text>
+  </g>
+</svg>`;
+
+const qs=[
+  {k:"kitchen",q:"Kitchen shape",ans:"U-shaped",conf:.86,ev:"Counters run along three walls with the opening facing the living room.",opts:["U-shaped","L-shaped","Galley","Single wall","Island"]},
+  {k:"shower",q:"Shower",ans:"Walk-in",conf:.74,ev:"Rectangle drawn without a tub outline, dashed glass line, no step marked.",opts:["Walk-in","Tub / shower combo","Separate tub and shower"]},
+  {k:"ada",q:"ADA unit (lower counters)",ans:"No",conf:.68,ev:"No ADA or HC tag on the plan, and the bathroom has no 60-inch turning circle.",opts:["No","Yes"]},
+  {k:"door",q:"Bedroom has a door",ans:"Yes",conf:.91,ev:"Door swing is drawn at the bedroom entry.",opts:["Yes","No"]},
+];
+const done={};
+function renderQ(){
+  document.getElementById("labels").innerHTML=`<h2>Model's labels</h2>`+qs.map((x,i)=>{
+    const d=done[i];
+    return `<div class="lab ${d?"done":""}">
+      <span class="q">${x.q}</span><span class="conf">${Math.round(x.conf*100)}% sure</span>
+      <span class="ev">${d?`Saved: <b>${d.v}</b> (${d.how})`:`Model says <b>${x.ans}</b>. ${x.ev}`}</span>
+      ${d?`<div class="acts"><button data-undo="${i}">Undo</button></div>`:`<div class="acts">
+        <button class="primary" data-ok="${i}">Accept</button>
+        <label class="conf" for="sel${i}">or correct to</label>
+        <select id="sel${i}" data-fix="${i}"><option value="">choose…</option>${x.opts.filter(o=>o!==x.ans).map(o=>`<option>${o}</option>`).join("")}</select>
+      </div>`}
+    </div>`}).join("");
+  const left=qs.length-Object.keys(done).length;document.getElementById("qcount").textContent=left;
+  // Feed reviewed labels into the plans table (Tokyo)
+  labelState.Tokyo={kitchen:done[0]?.v,shower:done[1]?.v};renderPlans();
+}
+document.getElementById("labels").addEventListener("click",e=>{
+  const ok=e.target.dataset.ok,undo=e.target.dataset.undo;
+  if(ok!==undefined){done[ok]={v:qs[ok].ans,how:"accepted"};renderQ()}
+  if(undo!==undefined){delete done[undo];renderQ()}});
+document.getElementById("labels").addEventListener("change",e=>{
+  const i=e.target.dataset.fix;if(i!==undefined&&e.target.value){done[i]={v:e.target.value,how:"corrected"};renderQ()}});
+
+const checks=[
+  ["on","Interview: pain points and last move's spreadsheet","Done"],
+  ["on","Database design (schema + seed), tested on Postgres","Done"],
+  ["on","Found which platform Griffis's site uses","Done"],
+  ["mid","GitHub repo connected","Waiting on repo access"],
+  ["mid","Official site links for Solaris, The Grand, The Watson","Waiting on you"],
+  ["","Griffis scraper as a scheduled job","Next"],
+  ["","Vision labeling job + review queue wired to the database",""],
+  ["","Location scores: coffee, trails, commute",""],
+  ["","Email alerts for watched plans",""],
+  ["","Real website on your domain, behind a login",""],
+];
+document.getElementById("checks").innerHTML=`<h2 style="margin-bottom:8px">Phase 1 progress</h2>`+checks.map(([s,t,n])=>`
+  <div class="check"><span class="box ${s}">${s==="on"?"✓":""}</span><span>${t}</span><span class="conf">${n}</span></div>`).join("");
+
+const views=["buildings","plans","review","model","roadmap"];
+function route(){const v=views.includes(location.hash.slice(1))?location.hash.slice(1):"buildings";
+  views.forEach(x=>{document.getElementById("v-"+x).hidden=x!==v});
+  document.querySelectorAll("nav a").forEach(a=>{if(a.getAttribute("href")==="#"+v)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current")});
+  window.scrollTo(0,0)}
+addEventListener("hashchange",route);route();renderQ();
+</script>
