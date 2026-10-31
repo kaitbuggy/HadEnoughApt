@@ -1,0 +1,43 @@
+name: Export site data
+
+# Writes the public listing data (no visitor data) to a JSON file the website
+# reads. Runs after each availability check and on demand.
+
+on:
+  workflow_run:
+    workflows: ['Check availability']
+    types: [completed]
+  workflow_dispatch: {}
+  pull_request:
+    paths:
+      - 'scraper/src/export.js'
+      - '.github/workflows/export.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: scraper
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: scraper/package-lock.json
+      - run: npm ci
+      - name: Export
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: node src/export.js out/site-data.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site-data
+          path: scraper/out/site-data.json
+          retention-days: 7
