@@ -156,7 +156,7 @@ select{font:inherit;padding:5px 8px;border-radius:6px;border:1px solid var(--rul
       <div>
         <div class="eyebrow">Griffis at The Domain</div>
         <h1>Floor plans</h1>
-        <p class="lede">Prices and sizes for Shanghai, Milan and London come from the Griffis availability page on Oct 30. The rest are plan names only until the scraper's first run. Layout columns fill in as you review labels.</p>
+        <p class="lede">Prices and sizes for Shanghai, Milan and London come from the Griffis availability page on Oct 30. The rest are plan names only until the scraper's first run. Layout columns fill in as labels are reviewed.</p>
       </div>
       <div class="toolbar" role="group" aria-label="Filter">
         <button class="chip" aria-pressed="false" data-f="avail" id="f-avail">Available now</button>
@@ -189,9 +189,9 @@ select{font:inherit;padding:5px 8px;border-radius:6px;border:1px solid var(--rul
     <!-- REVIEW -->
     <section class="view wrap" id="v-review" hidden>
       <div>
-        <div class="eyebrow">Model proposes · you decide</div>
+        <div class="eyebrow">Model proposes · a reviewer decides</div>
         <h1>Review queue</h1>
-        <p class="lede">When the scraper finds a new floor plan image, a vision model labels it. You accept or correct each label, and every answer becomes training data. <span class="example">EXAMPLE plan drawing</span></p>
+        <p class="lede">When the scraper finds a new floor plan image, a vision model labels it. A reviewer accepts or corrects each label, and every answer becomes training data. <span class="example">EXAMPLE plan drawing</span></p>
       </div>
       <div class="review">
         <div class="sheet plan">
@@ -215,9 +215,9 @@ select{font:inherit;padding:5px 8px;border-radius:6px;border:1px solid var(--rul
           <div class="ent"><h3>floor_plans</h3><p>Plan name, beds, baths, sq ft range, image and its fingerprint so changes are caught.</p></div>
           <div class="ent"><h3>units</h3><p>Unit number, floor, top floor, facing direction, faces the courtyard, what the window looks at.</p></div>
           <div class="ent key"><h3>availability_windows</h3><p>Every time a plan or unit opens and closes, with rents seen. Answers "when was this last available?"</p></div>
-          <div class="ent key"><h3>labels</h3><p>Kitchen shape, walk-in shower, ADA, bedroom door. Records who said it (model, you, crowd) and whether it's been reviewed.</p></div>
+          <div class="ent key"><h3>labels</h3><p>Kitchen shape, walk-in shower, ADA, bedroom door. Records who said it (model, reviewer, crowd) and whether it's been reviewed.</p></div>
           <div class="ent key"><h3>watches → alerts_sent</h3><p>"Tell me when Milan opens on floor 4 or above under $1,500." Never alerts twice for the same opening.</p></div>
-          <div class="ent"><h3>fees + household</h3><p>Pet, parking and admin fees, multiplied by the number of pets and cars in your household, for the true monthly cost.</p></div>
+          <div class="ent"><h3>fees + household</h3><p>Pet, parking and admin fees, multiplied by the number of pets and cars in a household, for the true monthly cost.</p></div>
           <div class="ent"><h3>location_scores</h3><p>Coffee within a 10-minute walk, distance to trails, commute minutes to places you choose.</p></div>
           <div class="ent"><h3>scrape_runs</h3><p>Each check of each site. A failed or changed run tells you the scraper broke.</p></div>
         </div>
@@ -231,9 +231,9 @@ select{font:inherit;padding:5px 8px;border-radius:6px;border:1px solid var(--rul
         <h1>Roadmap</h1>
       </div>
       <div class="phases">
-        <div class="sheet phase now"><span class="pill p-pencil">Now</span><h2>1 · Just you</h2><ul><li>Austin buildings</li><li>Scraper + history</li><li>Model labels, you review</li><li>Alerts by email</li></ul></div>
-        <div class="sheet phase"><span class="pill p-off">Next</span><h2>2 · Crowdsourcing</h2><ul><li>Accounts</li><li>Others submit and verify labels</li><li>Analytics</li></ul></div>
-        <div class="sheet phase"><span class="pill p-off">Later</span><h2>3 · More cities</h2><ul><li>Seattle, NYC, SF</li><li>Seattle seeded from your old sheet</li></ul></div>
+        <div class="sheet phase now"><span class="pill p-pencil">Now</span><h2>1 · Austin</h2><ul><li>A few Austin buildings</li><li>Scraper + history</li><li>Model labels, reviewed</li><li>Watchlist, no login needed</li></ul></div>
+        <div class="sheet phase"><span class="pill p-off">Next</span><h2>2 · Crowdsourcing</h2><ul><li>Optional accounts to sync across devices</li><li>Visitors submit and verify labels</li><li>Analytics</li></ul></div>
+        <div class="sheet phase"><span class="pill p-off">Later</span><h2>3 · More cities</h2><ul><li>Seattle, NYC, SF</li><li>More scraper adapters per platform</li></ul></div>
         <div class="sheet phase"><span class="pill p-off">Later</span><h2>4 · Homes</h2><ul><li>Read layout from listing photos</li><li>MLS data partnerships</li></ul></div>
       </div>
       <div class="sheet checks" id="checks"></div>
@@ -283,7 +283,7 @@ function renderPlans(){
       <td class="num">${p.bb||unk}</td><td class="num">${p.sq||(p.pending?unk:"")}</td>
       <td class="num">${p.rent?"$"+p.rent.toLocaleString():(p.pending?unk:'<span class="unknown">no price while unavailable</span>')}</td>
       <td>${st}</td><td>${L.kitchen||tbd}</td><td>${L.shower||tbd}</td></tr>`}).join("")
-    :`<tr><td colspan="8" style="color:var(--graphite)">No plans match yet. Layout filters work once you review labels in the Review queue.</td></tr>`;
+    :`<tr><td colspan="8" style="color:var(--graphite)">No plans match yet. Layout filters work once labels are reviewed in the Review queue.</td></tr>`;
 }
 document.querySelectorAll(".chip").forEach(c=>c.addEventListener("click",()=>{
   const on=c.getAttribute("aria-pressed")!=="true";c.setAttribute("aria-pressed",on);filters[c.dataset.f]=on;renderPlans()}));
@@ -361,16 +361,16 @@ document.getElementById("labels").addEventListener("change",e=>{
   const i=e.target.dataset.fix;if(i!==undefined&&e.target.value){done[i]={v:e.target.value,how:"corrected"};renderQ()}});
 
 const checks=[
-  ["on","Interview: pain points and last move's spreadsheet","Done"],
+  ["on","Research: renter pain points","Done"],
   ["on","Database design (schema + seed), tested on Postgres","Done"],
   ["on","Found which platform Griffis's site uses","Done"],
   ["mid","GitHub repo connected","Waiting on repo access"],
-  ["mid","Official site links for Solaris, The Grand, The Watson","Waiting on you"],
+  ["mid","Official site links for Solaris, The Grand, The Watson","Needed"],
   ["","Griffis scraper as a scheduled job","Next"],
   ["","Vision labeling job + review queue wired to the database",""],
   ["","Location scores: coffee, trails, commute",""],
   ["","Email alerts for watched plans",""],
-  ["","Real website on your domain, behind a login",""],
+  ["","Public website on a custom domain (no login to browse)",""],
 ];
 document.getElementById("checks").innerHTML=`<h2 style="margin-bottom:8px">Phase 1 progress</h2>`+checks.map(([s,t,n])=>`
   <div class="check"><span class="box ${s}">${s==="on"?"✓":""}</span><span>${t}</span><span class="conf">${n}</span></div>`).join("");

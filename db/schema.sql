@@ -7,9 +7,14 @@
 -- ─────────────────────────────────────────────────────────────
 create table users (
   id           uuid primary key default gen_random_uuid(),  -- swap for auth.users(id) on Supabase
-  email        text unique not null,
+  email        text unique,                       -- null for anonymous visitors
   display_name text,
   created_at   timestamptz not null default now()
+);
+
+-- People allowed to review labels and run admin tasks.
+create table admins (
+  user_id uuid primary key references users(id) on delete cascade
 );
 
 -- ─────────────────────────────────────────────────────────────
@@ -174,7 +179,7 @@ create table location_scores (
 );
 
 -- ─────────────────────────────────────────────────────────────
--- Your search: household, watchlist, ratings
+-- Per-visitor data: household, watchlist, ratings
 -- ─────────────────────────────────────────────────────────────
 create table household (
   user_id uuid primary key references users(id) on delete cascade,

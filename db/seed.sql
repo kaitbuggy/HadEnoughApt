@@ -1,4 +1,4 @@
--- Starter data: the attributes you screen on + the four Austin buildings.
+-- Starter data: screening attributes + example Austin buildings.
 
 insert into attribute_defs (key, label, applies_to, value_type, enum_values) values
   ('kitchen_shape',   'Kitchen shape',             'floor_plan', 'enum',    array['u_shape','l_shape','galley','single_wall','island','peninsula']),

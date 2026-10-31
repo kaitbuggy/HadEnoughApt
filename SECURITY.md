@@ -1,6 +1,6 @@
 # Security
 
-This repo holds code for a personal apartment tracker. Personal data (household, notes, ratings, watchlist, places you commute to) lives **only in the database**, never in the repo.
+This repo holds code for an apartment unit tracker. Visitor data (household, notes, ratings, watchlist, commute destinations) lives **only in the database**, never in the repo.
 
 ## Repo settings checklist
 
@@ -18,7 +18,7 @@ This repo holds code for a personal apartment tracker. Personal data (household,
 | Supabase public (anon) key | Website environment variable | Browser; limited by row-level security |
 | Supabase service-role key | GitHub Actions secret | Scraper only; never sent to a browser |
 | Vision model API key | GitHub Actions secret | Labeling job only; has a monthly spending limit |
-| Database password | Password manager | You |
+| Database password | Password manager | Repo owner |
 
 - Never commit `.env` files. `.gitignore` excludes them.
 - If a key leaks, revoke it first, then clean the history.
@@ -26,13 +26,16 @@ This repo holds code for a personal apartment tracker. Personal data (household,
 ## Database
 
 - Row-level security is on for every table (`db/policies.sql`). With no matching rule, access is denied.
-- Listing data is read-only for logged-in users. Only the scraper writes it.
-- Personal tables are visible only to their owner.
+- Listing data is public to read. Only the scraper and admins can write it.
+- Visitor tables (watchlist, notes, ratings, household, destinations) are visible only to the visitor who created them.
+- Admins are listed in the `admins` table, which can only be changed from the Supabase dashboard.
 - Store only what the tool needs. For example, a commute destination can be an approximate point.
 
 ## Website
 
-- Login is required. Use Supabase Auth with a magic link or passkey, so there's no password to leak.
+- No login is needed to browse or keep a watchlist. Each visitor gets a Supabase anonymous session in the background, so their saved items stay private to them.
+- Turn on rate limiting for anonymous sign-ins (Supabase Auth settings) and consider a CAPTCHA, so bots can't create sessions in bulk.
+- Admin pages (label review, scraper health) require a real sign-in with a magic link or passkey, plus a row in `admins`.
 - HTTPS is provided by the host.
 - The domain registrar account has 2FA and registrar lock turned on.
 
