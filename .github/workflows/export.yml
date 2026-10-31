@@ -3,6 +3,7 @@ name: Export site data
 # Writes the public listing data (no visitor data) to site-data.json on the
 # `site-data` branch, which the website reads. The branch holds a single
 # commit that is replaced on every run, so history doesn't pile up.
+# Then rebuilds the website from it and deploys it to GitHub Pages.
 # Runs after each availability check and on demand.
 
 on:
@@ -17,6 +18,10 @@ on:
 
 permissions:
   contents: write   # to update the site-data branch only
+
+concurrency:
+  group: export
+  cancel-in-progress: false
 
 jobs:
   export:
@@ -52,3 +57,25 @@ jobs:
           git add site-data.json
           git commit -qm "Site data $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO}.git" HEAD:refs/heads/site-data
+      - name: Build the website
+        working-directory: .
+        run: python3 site/build.py scraper/out/site-data.json
+      - name: Package the website
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site-public
+
+  deploy:
+    needs: export
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write      # to publish the site
+      id-token: write   # required by deploy-pages
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
