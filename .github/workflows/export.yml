@@ -1,7 +1,9 @@
 name: Export site data
 
-# Writes the public listing data (no visitor data) to a JSON file the website
-# reads. Runs after each availability check and on demand.
+# Writes the public listing data (no visitor data) to site-data.json on the
+# `site-data` branch, which the website reads. The branch holds a single
+# commit that is replaced on every run, so history doesn't pile up.
+# Runs after each availability check and on demand.
 
 on:
   workflow_run:
@@ -14,7 +16,7 @@ on:
       - '.github/workflows/export.yml'
 
 permissions:
-  contents: read
+  contents: write   # to update the site-data branch only
 
 jobs:
   export:
@@ -36,8 +38,17 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: node src/export.js out/site-data.json
-      - uses: actions/upload-artifact@v4
-        with:
-          name: site-data
-          path: scraper/out/site-data.json
-          retention-days: 7
+      - name: Publish to the site-data branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          dir="$RUNNER_TEMP/site-data"
+          mkdir -p "$dir" && cp out/site-data.json "$dir/"
+          cd "$dir"
+          git init -q -b site-data
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add site-data.json
+          git commit -qm "Site data $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO}.git" HEAD:refs/heads/site-data
