@@ -14,6 +14,8 @@ on:
   pull_request:
     paths:
       - 'scraper/src/export.js'
+      - 'scraper/src/apply-labels.js'
+      - 'labels/**'
       - '.github/workflows/export.yml'
 
 permissions:
@@ -39,6 +41,11 @@ jobs:
           cache: npm
           cache-dependency-path: scraper/package-lock.json
       - run: npm ci
+      - name: Load floor plan labels
+        if: github.event_name != 'pull_request'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: node src/apply-labels.js ../labels/plan-labels.json
       - name: Export
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}

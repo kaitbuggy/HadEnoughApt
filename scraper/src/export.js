@@ -38,6 +38,12 @@ const QUERIES = {
   windows: `
     select id, floor_plan_id, unit_id, opened_at, closed_at, min_rent_seen, max_rent_seen
     from availability_windows order by opened_at`,
+  // Layout labels for floor plans (kitchen shape, bathroom). Pending labels are
+  // included and marked, so the site can say they haven't been checked yet.
+  labels: `
+    select floor_plan_id, attribute_key, value, status, confidence
+    from current_labels where floor_plan_id is not null
+    order by floor_plan_id, attribute_key`,
   lastRuns: `
     select distinct on (building_id) building_id, status, started_at, finished_at, items_found
     from scrape_runs order by building_id, started_at desc`,
