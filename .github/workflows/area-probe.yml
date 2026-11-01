@@ -1,0 +1,30 @@
+name: Area probe (temporary)
+on:
+  push:
+    branches: [area-probe]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - run: |
+          UA='HadEnoughApt/1.0 (github.com/kaitbuggy/HadEnoughApt)'
+          for q in "Griffis at The Domain, Austin TX" "Griffis at the Domain apartments" "11400 Domain Dr, Austin, TX" "2800 Solaris St, Austin, TX" "11009 Alterra Pkwy, Austin, TX" "11901 Burnet Rd, Austin, TX 78758"; do
+            echo "== $q"; curl -s -A "$UA" "https://nominatim.openstreetmap.org/search?format=json&limit=2&q=$(python3 -c 'import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))' "$q")" | head -c 700; echo; sleep 1.2
+          done
+          # The Watson approx point (Burnet Rd north of Braker) in Web Mercator
+          read X Y < <(python3 -c "import math;lat,lng=30.402,-97.719;print(lng*20037508.34/180, math.log(math.tan((90+lat)*math.pi/360))*20037508.34/math.pi)")
+          echo "== noise identify road MapServer"
+          curl -s "https://geo.dot.gov/server/rest/services/Hosted/NTAD_Noise_2020_CONUS_Road/MapServer/identify?f=json&geometry=$X,$Y&geometryType=esriGeometryPoint&sr=3857&layers=all&tolerance=0&mapExtent=$X,$Y,$((${X%.*}+100)),$((${Y%.*}+100))&imageDisplay=100,100,96&returnGeometry=false" | head -c 1500; echo
+          echo "== noise identify road+aviation"
+          curl -s "https://geo.dot.gov/server/rest/services/hosted/NTAD_Noise_2020_CONUS_Aviation_Road/MapServer/identify?f=json&geometry=$X,$Y&geometryType=esriGeometryPoint&sr=3857&layers=all&tolerance=0&mapExtent=$X,$Y,$((${X%.*}+100)),$((${Y%.*}+100))&imageDisplay=100,100,96&returnGeometry=false" | head -c 1500; echo
+          echo "== services list"
+          curl -s "https://geo.dot.gov/server/rest/services/Hosted?f=json" | python3 -c "import json,sys;d=json.load(sys.stdin);print([s for s in d.get('services',[]) if 'oise' in s['name']])"
+          curl -s "https://geo.dot.gov/server/rest/services/hosted?f=json" | python3 -c "import json,sys;d=json.load(sys.stdin);print([s for s in d.get('services',[]) if 'oise' in s['name']])"
+          echo "== 311 types"
+          curl -s "https://data.austintexas.gov/resource/xwdj-i9he.json?\$select=sr_type_desc,count(*)&\$where=lower(sr_type_desc)%20like%20'%25noise%25'&\$group=sr_type_desc" | head -c 1500; echo
+          curl -s "https://data.austintexas.gov/resource/xwdj-i9he.json?\$limit=1" | head -c 1500; echo
+          echo "== overpass"
+          curl -s --data-urlencode 'data=[out:json][timeout:60];(way(around:300,30.402,-97.719)[highway];node(around:300,30.402,-97.719)[highway=street_lamp];);out tags 20;' https://overpass-api.de/api/interpreter | head -c 1500; echo
