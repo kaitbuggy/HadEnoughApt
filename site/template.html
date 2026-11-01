@@ -953,7 +953,7 @@ async function saveReview() {
   let saved = false;
   if (cfg.supabaseUrl && cfg.supabaseKey) {
     try {
-      const res = await fetch(cfg.supabaseUrl.replace(/\/$/, '') + '/rest/v1/labels', { method: 'POST', headers: { apikey: cfg.supabaseKey, Authorization: 'Bearer ' + cfg.supabaseKey, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify(rows) });
+      const res = await fetch(cfg.supabaseUrl.replace(/\/$/, '') + '/rest/v1/labels', { method: 'POST', headers: { apikey: cfg.supabaseKey, ...(cfg.supabaseKey.startsWith('eyJ') ? { Authorization: 'Bearer ' + cfg.supabaseKey } : {}), 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify(rows) });
       saved = res.ok;
       reviewMsg = saved ? 'Saved. ' + g.lead.name + ' is checked.' : "Couldn't save (" + res.status + '). Your answers are kept in this browser.';
     } catch { reviewMsg = "Couldn't reach the database. Your answers are kept in this browser."; }
