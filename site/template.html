@@ -214,6 +214,12 @@ tbody tr:last-child td{border-bottom:0}
   .side fieldset.facetset legend{grid-column:1/-1}
 }
 .reviewgrid{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:28px;align-items:start}
+.tabs{display:flex;gap:28px;margin-top:16px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tab{height:44px;padding:0 2px;margin-bottom:-1px;border:0;border-bottom:2px solid transparent;background:none;font:inherit;font-size:15px;color:var(--muted);cursor:pointer;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--ink);font-weight:500;border-bottom-color:var(--ink)}
+.tab:focus-visible{outline:2px solid var(--control);outline-offset:2px}
+.undomsg{margin:2px 0 0;font-size:13px;text-align:center}
+.nudge{outline:1px solid var(--accent);outline-offset:10px;border-radius:12px}
 .mapframe{height:600px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#fff}
 .mapframe iframe{width:100%;height:100%;border:0;display:block}
 @media (max-width:860px){.mapframe{height:480px}}
@@ -390,11 +396,18 @@ const KITCHEN = [['u_shape', 'U-shape', 'M6 6V22H22V6'], ['l_shape', 'L-shape', 
 const BATH = [['walkin', 'Walk-in shower', 'M7 5H21V23H7ZM7 5L21 23M21 5L7 23'], ['tub', 'Tub', 'M4 11H24V17A4 4 0 0 1 20 21H8A4 4 0 0 1 4 17Z']];
 const icon = (d) => `<svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true"><path d="${d}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const LBL = new Map();
-for (const l of DATA.labels || []) {
-  const o = LBL.get(l.floor_plan_id) || {};
-  o[l.attribute_key] = l.value; if (l.status === 'pending') o.pending = true;
-  LBL.set(l.floor_plan_id, o);
+const UNIT0 = new Map(DATA.units.map((u) => [u.id, { view_of: u.view_of, facing: u.facing }]));
+// Rebuild labels from the exported data, before review answers are applied on top (used after an undo).
+function resetLabels() {
+  LBL.clear();
+  for (const l of DATA.labels || []) {
+    const o = LBL.get(l.floor_plan_id) || {};
+    o[l.attribute_key] = l.value; if (l.status === 'pending') o.pending = true;
+    LBL.set(l.floor_plan_id, o);
+  }
+  for (const u of DATA.units) { Object.assign(u, UNIT0.get(u.id)); u.viewReviewed = false; }
 }
+resetLabels();
 function layoutOf(pid) {
   const o = LBL.get(pid) || {};
   return { k: o.kitchen_shape ?? null, island: o.kitchen_island ?? null, walkin: o.walk_in_shower ?? null, tub: o.has_tub ?? null, pending: !!o.pending, any: !!LBL.get(pid) };
@@ -919,11 +932,51 @@ function reviewQueue() {
 }
 let reviewSkip = new Set(), reviewAns = {}, reviewMsg = '';
 const KSHAPES = [['u_shape', 'U-shape'], ['l_shape', 'L-shape'], ['galley', 'Galley'], ['single_wall', 'One wall']];
-let reviewTab = 'layouts';
+let reviewTab = store.get('reviewTab', 'layouts');
 const reviewHead = (tab, intro) => `<h1 class="display" style="font-size:44px">Review</h1>
-  <div class="chips" role="tablist" aria-label="What to review" style="margin-top:14px">${[['layouts', 'Floor plan layouts'], ['facing', 'Which way units face']].map(([k, l]) => `<button type="button" class="chip" role="tab" aria-selected="${tab === k}" aria-pressed="${tab === k}" data-rtab="${k}">${l}</button>`).join('')}</div>
+  <div class="tabs" role="tablist" aria-label="What to review">${[['layouts', 'Floor plan layouts', reviewQueue().length], ['facing', 'Which way units face', facingLeft()]].map(([k, l, n]) => `<button type="button" class="tab" role="tab" aria-selected="${tab === k}" data-rtab="${k}">${l} · ${n} left</button>`).join('')}</div>
   <p class="muted" style="margin:10px 0 0">${intro} Anyone can answer; every answer is kept, so a bad one can be undone.</p>`;
-const progressBox = (done, total, label) => `<div style="min-width:280px;display:flex;flex-direction:column;gap:6px"><div style="display:flex;justify-content:space-between" class="small"><span><strong>${done}</strong> <span class="muted">of ${total} ${label}</span></span><span class="muted">${total - done} left</span></div><div class="track" style="height:8px"><div class="fill" style="width:${total ? (done / total * 100).toFixed(1) : 0}%;background:var(--okFg)"></div></div></div>`;
+const progressBox = (done, total, label, skipped = 0, kind = '') => `<div style="min-width:280px;display:flex;flex-direction:column;gap:6px"><div style="display:flex;justify-content:space-between" class="small"><span><strong>${done}</strong> <span class="muted">of ${total} ${label}</span></span><span class="muted">${total - done} left</span></div><div class="track" style="height:8px"><div class="fill" style="width:${total ? (done / total * 100).toFixed(1) : 0}%;background:var(--okFg)"></div></div>${skipped ? `<span class="small muted">${skipped} skipped · <button type="button" class="linkbtn" data-unskip="${kind}">Show them</button></span>` : ''}</div>`;
+const facingLeft = () => DATA.units.filter((u) => mapFor(B.get(u.building_id)) && !u.viewReviewed).length;
+// Saves wait ~6 s so they can be undone, then go to the database. Leaving the page sends them right away.
+const UNDO_MS = 6000;
+let pendingSave = null;
+// Answers are kept in this browser right away (so the next item shows), tagged with a batch id.
+const storeKey = (kind) => kind === 'layouts' ? 'reviews' : 'unitReviews';
+const reapply = () => { resetLabels(); applyReviews(); applyUnitReviews(); };
+function queueSave(kind, rows, label) {
+  flushSave();
+  const batch = Date.now() + ':' + Math.random().toString(36).slice(2, 7), now = new Date().toISOString();
+  const keep = (r) => kind === 'layouts' ? { floor_plan_id: r.floor_plan_id } : { unit_id: r.unit_id };
+  store.set(storeKey(kind), [...store.get(storeKey(kind), []), ...rows.map((r) => ({ ...keep(r), attribute_key: r.attribute_key, value: r.value, created_at: now, saved: false, batch }))]);
+  const job = { kind, rows, label, batch };
+  job.timer = setTimeout(() => sendSave(job), UNDO_MS);
+  pendingSave = job;
+  reapply(); render(); window.scrollTo(0, 0);
+}
+async function sendSave(job) {
+  if (pendingSave === job) pendingSave = null;
+  clearTimeout(job.timer);
+  const [saved, msg] = await postLabels(job.rows);
+  store.set(storeKey(job.kind), store.get(storeKey(job.kind), []).map((r) => r.batch === job.batch ? { ...r, saved } : r));
+  if (job.kind === 'layouts') reviewMsg = saved ? '' : msg; else facingMsg = saved ? '' : msg;
+  render();
+}
+function flushSave() { if (pendingSave) sendSave(pendingSave); }
+function undoSave() {
+  const job = pendingSave; if (!job) return;
+  clearTimeout(job.timer); pendingSave = null;
+  store.set(storeKey(job.kind), store.get(storeKey(job.kind), []).filter((r) => r.batch !== job.batch));
+  reapply(); render(); window.scrollTo(0, 0);
+}
+window.addEventListener('pagehide', () => {
+  const job = pendingSave; if (!job) return;
+  const cfg = DATA.config || {};
+  if (cfg.supabaseUrl && cfg.supabaseKey) fetch(cfg.supabaseUrl.replace(/\/$/, '') + '/rest/v1/labels', { method: 'POST', keepalive: true, headers: { apikey: cfg.supabaseKey, Authorization: 'Bearer ' + cfg.supabaseKey, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify(job.rows) });
+});
+const undoLine = (kind, keys) => pendingSave?.kind === kind
+  ? `<p class="undomsg" role="status">${esc(pendingSave.label)} <button type="button" class="linkbtn" id="undo" style="font-weight:500">Undo</button></p>`
+  : `<p class="small muted" style="margin:2px 0 0;text-align:center" aria-live="polite">${esc(kind === 'layouts' ? reviewMsg : facingMsg) || keys}</p>`;
 
 // ---------- which way units face ----------
 const VIEWS = [['courtyard', 'Courtyard'], ['street', 'Street'], ['park', 'Park or trees'], ['pool', 'Pool'], ['building', 'Another building']];
@@ -977,7 +1030,7 @@ function pageFacing() {
   const q = facingQueue().filter((g) => !facingSkip.has(g.key));
   const head = `<div style="display:flex;flex-wrap:wrap;gap:12px 24px;justify-content:space-between;align-items:flex-end;margin-bottom:24px">
     <div>${reviewHead('facing', "Find each unit on the building's map and say what its windows look out on.")}</div>
-    ${progressBox(done, all.length, 'units checked')}</div>`;
+    ${progressBox(done, all.length, 'units checked', facingSkip.size, 'facing')}</div>`;
   const where = `<section style="margin-top:32px;padding-top:24px;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px 32px"><h2 style="font-size:24px">Where this shows up</h2><p class="small muted" style="margin:0">Answers fill the Faces column on plan pages and "Where it sits" on unit pages. Claude doesn't guess these yet, so every unit starts empty. Units listed most often come first.</p></section>`;
   if (!q.length) return head + `<div class="emptybox"><strong>${facingQueue().length ? "You've skipped the rest for now." : 'Every unit is checked. Nice work.'}</strong><span class="muted">${facingQueue().length ? 'Reload the page to see skipped units again.' : 'New units show up here as buildings list them.'}</span></div>` + where;
   const g = q[0], u = g.lead, b = B.get(u.building_id), p = P.get(u.floor_plan_id), map = mapFor(b);
@@ -992,30 +1045,29 @@ function pageFacing() {
       <p class="small muted" style="margin:0">The building's own community map. Pick floor ${u.floor ?? ''} and find unit ${esc(u.unit_number || '')}, then look at which side of the building its windows are on.</p>
     </section>
     <aside class="card" aria-label="Where it faces" style="padding:22px;display:flex;flex-direction:column;gap:18px">
-      <fieldset style="border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:8px"><legend style="padding:0;margin:0 0 8px;display:flex;justify-content:space-between;width:100%"><span class="flabel">Windows face</span><span class="small muted">pick one</span></legend><div class="chips">${chips('view_of', VIEWS, [[null, 'Not sure']])}</div></fieldset>
+      <fieldset id="fview" class="${facingNudge ? 'nudge' : ''}" style="border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:8px"><legend style="padding:0;margin:0 0 8px;display:flex;justify-content:space-between;width:100%"><span class="flabel">Windows face</span><span class="small" style="color:${facingNudge ? 'var(--accent)' : 'var(--muted)'}">${facingNudge ? 'Pick one to save' : 'pick one'}</span></legend><div class="chips">${chips('view_of', VIEWS, [[null, 'Not sure']])}</div></fieldset>
       <fieldset style="border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:8px"><legend style="padding:0;margin:0 0 8px;display:flex;justify-content:space-between;width:100%"><span class="flabel">Direction</span><span class="small muted">optional</span></legend><div class="chips">${chips('facing', DIRS)}</div></fieldset>
       ${others.length ? `<label style="display:flex;gap:10px;align-items:flex-start;font-size:14px;cursor:pointer"><input type="checkbox" id="fstack" ${facingStack ? 'checked' : ''} style="margin-top:3px;width:16px;height:16px;accent-color:var(--ink)"><span>Same for the units in this spot on other floors<span class="small muted" style="display:block">${esc(others.map((x) => x.unit_number).join(', '))}</span></span></label>` : ''}
       <div style="display:flex;flex-direction:column;gap:8px;padding-top:16px;border-top:1px solid var(--line)">
         <button type="button" class="btn primary" id="fsave" ${ready ? '' : 'aria-disabled="true" style="opacity:.45"'}>${ready ? 'Save' : 'Pick what it faces'}</button>
         <button type="button" class="btn sm" id="fskip">Skip for now</button>
-        <p class="small muted" style="margin:2px 0 0;text-align:center" aria-live="polite">${esc(facingMsg) || 'Keys: 1–5 what it faces · Enter save · S skip'}</p>
+        ${undoLine('facing', 'Keys: 1–5 what it faces · Enter save · S skip')}
       </div>
     </aside>
   </div>` + where;
 }
-async function saveFacing() {
-  const g = facingQueue().filter((x) => !facingSkip.has(x.key))[0]; if (!g || !('view_of' in facingAns)) return;
+let facingNudge = false;
+function saveFacing() {
+  const g = facingQueue().filter((x) => !facingSkip.has(x.key))[0]; if (!g) return;
+  if (!('view_of' in facingAns)) { facingNudge = true; render(); document.getElementById('fview')?.querySelector('button')?.focus(); return; }
   const units = facingStack ? g.units : [g.lead];
   const rows = [];
   for (const u of units) {
     rows.push({ unit_id: u.id, attribute_key: 'view_of', value: facingAns.view_of, source: 'user', status: 'accepted' });
     if (facingAns.facing) rows.push({ unit_id: u.id, attribute_key: 'facing', value: facingAns.facing, source: 'user', status: 'accepted' });
   }
-  const [saved, msg] = await postLabels(rows);
-  facingMsg = saved ? `Saved. ${units.length === 1 ? 'Unit ' + g.lead.unit_number + ' is' : units.length + ' units are'} checked.` : msg;
-  const now = new Date().toISOString();
-  store.set('unitReviews', [...localUnitReviews(), ...rows.map((r) => ({ unit_id: r.unit_id, attribute_key: r.attribute_key, value: r.value, created_at: now, saved }))]);
-  facingAns = {}; applyUnitReviews(); render(); window.scrollTo(0, 0);
+  facingAns = {}; facingMsg = ''; facingNudge = false;
+  queueSave('facing', rows, units.length === 1 ? 'Saved unit ' + g.lead.unit_number + '.' : 'Saved unit ' + g.lead.unit_number + ' and ' + (units.length - 1) + ' more.');
 }
 
 function pageReview() {
@@ -1028,7 +1080,7 @@ function pageReview() {
     return `<div class="card" style="padding:16px;display:flex;flex-direction:column;gap:8px"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><strong style="font-weight:500">${label}</strong><span class="pill ${s.trusted ? 'ok' : 'off'}">${s.trusted ? 'Auto-approving' : Math.min(s.streak, TRUST_STREAK) + ' / ' + TRUST_STREAK + ' in a row'}</span></div><div class="track" style="height:6px"><div class="fill best" style="width:${Math.min(100, s.streak / TRUST_STREAK * 100).toFixed(0)}%"></div></div><span class="small muted">${s.n ? 'Matched you ' + s.ok + ' of ' + s.n + ' times' : 'No reviews yet'}</span></div>`; }).join('');
   const head = `<div style="display:flex;flex-wrap:wrap;gap:12px 24px;justify-content:space-between;align-items:flex-end;margin-bottom:24px">
     <div>${reviewHead('layouts', 'Least-confident plans first. Fix anything Claude got wrong, or confirm it with one click.')}</div>
-    ${progressBox(doneCount, total, 'plans checked')}
+    ${progressBox(doneCount, total, 'plans checked', reviewSkip.size, 'layouts')}
   </div>`;
   const trustSec = `<section style="margin-top:32px;padding-top:24px;border-top:1px solid var(--line)" aria-labelledby="trusth">
     <div style="margin-bottom:16px"><h2 id="trusth" style="font-size:24px">When can you stop?</h2><p class="small muted" style="margin:6px 0 0;max-width:72ch">Every answer is scored against Claude's guess. After ${TRUST_STREAK} matches in a row on one question, new guesses of that kind that Claude is at least ${TRUST_MIN_CONF * 100}% sure of are approved automatically. Unsure ones still come here, and one miss resets the streak.</p></div>
@@ -1056,7 +1108,7 @@ function pageReview() {
       <div style="display:flex;flex-direction:column;gap:8px;padding-top:16px;border-top:1px solid var(--line)">
         <button type="button" class="btn primary" id="rsave">${changed ? 'Save corrections' : 'Looks right'}</button>
         <button type="button" class="btn sm" id="rskip">Skip for now</button>
-        <p class="small muted" style="margin:2px 0 0;text-align:center" aria-live="polite">${esc(reviewMsg) || 'Keys: 1–4 kitchen shape · Enter save · S skip'}</p>
+        ${undoLine('layouts', 'Keys: 1–4 kitchen shape · Enter save · S skip')}
       </div>
     </aside>
   </div>` + trustSec;
@@ -1070,18 +1122,16 @@ async function postLabels(rows) {
     return res.ok ? [true, ''] : [false, "Couldn't save (" + res.status + '). Your answers are kept in this browser.'];
   } catch { return [false, "Couldn't reach the database. Your answers are kept in this browser."]; }
 }
-async function saveReview() {
+function saveReview() {
   const g = reviewQueue().filter((x) => !reviewSkip.has(x.key))[0]; if (!g) return;
-  const now = new Date().toISOString(), rows = [];
+  const rows = [];
   for (const p of g.plans) for (const [a] of ATTRS) {
     const guess = guessOf(g.lead.id, a)?.value ?? null;
     const value = a in reviewAns ? reviewAns[a] : guess;
     rows.push({ floor_plan_id: p.id, attribute_key: a, value, source: 'user', status: same(value, guess) ? 'accepted' : 'corrected' });
   }
-  const [saved, msg] = await postLabels(rows);
-  reviewMsg = saved ? 'Saved. ' + g.lead.name + ' is checked.' : msg;
-  store.set('reviews', [...localReviews(), ...rows.map((r) => ({ floor_plan_id: r.floor_plan_id, attribute_key: r.attribute_key, value: r.value, created_at: now, saved }))]);
-  reviewAns = {}; applyReviews(); render();
+  reviewAns = {}; reviewMsg = '';
+  queueSave('layouts', rows, 'Saved ' + g.lead.name + '.');
 }
 
 function notFound() {
@@ -1132,9 +1182,12 @@ app.addEventListener('click', (e) => {
   const bf = e.target.closest('[data-bf]');
   if (bf) { const [k, v] = bf.dataset.bf.split(':'); if (k === 'reset') { bFilt.beds = 'any'; bFilt.avail = false; } else if (k === 'avail') bFilt.avail = !bFilt.avail; else bFilt[k] = v; render(); return; }
   const rt = e.target.closest('[data-rtab]');
-  if (rt) { reviewTab = rt.dataset.rtab; render(); return; }
+  if (rt) { reviewTab = rt.dataset.rtab; store.set('reviewTab', reviewTab); render(); return; }
+  if (e.target.closest('#undo')) { undoSave(); return; }
+  const us = e.target.closest('[data-unskip]');
+  if (us) { if (us.dataset.unskip === 'layouts') reviewSkip = new Set(); else facingSkip = new Set(); render(); return; }
   const fv = e.target.closest('[data-fv]');
-  if (fv) { const i = fv.dataset.fv.indexOf(':'), k = fv.dataset.fv.slice(0, i), v = JSON.parse(fv.dataset.fv.slice(i + 1)); if (k === 'facing' && facingAns.facing === v) delete facingAns.facing; else facingAns[k] = v; facingMsg = ''; render(); return; }
+  if (fv) { const i = fv.dataset.fv.indexOf(':'), k = fv.dataset.fv.slice(0, i), v = JSON.parse(fv.dataset.fv.slice(i + 1)); if (k === 'facing' && facingAns.facing === v) delete facingAns.facing; else facingAns[k] = v; facingMsg = ''; if (k === 'view_of') facingNudge = false; render(); return; }
   if (e.target.closest('#fstack')) { facingStack = e.target.closest('#fstack').checked; return; }
   if (e.target.closest('#fsave')) { saveFacing(); return; }
   if (e.target.closest('#fskip')) { const g = facingQueue().filter((x) => !facingSkip.has(x.key))[0]; if (g) facingSkip.add(g.key); facingAns = {}; facingMsg = ''; render(); window.scrollTo(0, 0); return; }
@@ -1152,7 +1205,7 @@ window.addEventListener('hashchange', () => { const p = location.hash.split('/')
 document.addEventListener('keydown', (e) => {
   if ((location.hash.split('/')[1] || '') !== 'review' || e.target.closest('input,select,textarea') || e.metaKey || e.ctrlKey || e.altKey) return;
   if (reviewTab === 'facing') {
-    if (e.key >= '1' && e.key <= '5') { facingAns.view_of = VIEWS[Number(e.key) - 1][0]; render(); }
+    if (e.key >= '1' && e.key <= '5') { facingAns.view_of = VIEWS[Number(e.key) - 1][0]; facingNudge = false; render(); }
     else if (e.key === 'Enter' && !e.target.closest('button,a')) { e.preventDefault(); saveFacing(); }
     else if (e.key === 's' || e.key === 'S') document.getElementById('fskip')?.click();
     return;
