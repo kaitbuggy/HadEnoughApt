@@ -50,6 +50,11 @@ const QUERIES = {
     select floor_plan_id, attribute_key, value, status, created_at
     from labels where source = 'user' and floor_plan_id is not null
     order by created_at`,
+  // Which way units face, answered on the Review page.
+  unitReviews: `
+    select unit_id, attribute_key, value, created_at
+    from labels where source = 'user' and unit_id is not null
+    order by created_at`,
   modelGuesses: `
     select distinct on (floor_plan_id, attribute_key) floor_plan_id, attribute_key, value, confidence
     from labels where source = 'model' and floor_plan_id is not null

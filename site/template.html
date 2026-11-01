@@ -235,6 +235,15 @@ tbody tr:last-child td{border-bottom:0}
   .side fieldset.facetset legend{grid-column:1/-1}
 }
 .reviewgrid{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:28px;align-items:start}
+.tabs{display:flex;gap:28px;margin-top:16px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tab{height:44px;padding:0 2px;margin-bottom:-1px;border:0;border-bottom:2px solid transparent;background:none;font:inherit;font-size:15px;color:var(--muted);cursor:pointer;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--ink);font-weight:500;border-bottom-color:var(--ink)}
+.tab:focus-visible{outline:2px solid var(--control);outline-offset:2px}
+.undomsg{margin:2px 0 0;font-size:13px;text-align:center}
+.nudge{outline:1px solid var(--accent);outline-offset:10px;border-radius:12px}
+.mapframe{height:600px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#fff}
+.mapframe iframe{width:100%;height:100%;border:0;display:block}
+@media (max-width:860px){.mapframe{height:480px}}
 .planimg.reviewimg{height:600px;min-height:0;padding:16px}
 .planimg.reviewimg img{max-height:100%}
 @media (max-width:860px){.reviewgrid{grid-template-columns:1fr}.planimg.reviewimg{height:420px}}
@@ -408,11 +417,18 @@ const KITCHEN = [['u_shape', 'U-shape', 'M6 6V22H22V6'], ['l_shape', 'L-shape', 
 const BATH = [['walkin', 'Walk-in shower', 'M7 5H21V23H7ZM7 5L21 23M21 5L7 23'], ['tub', 'Tub', 'M4 11H24V17A4 4 0 0 1 20 21H8A4 4 0 0 1 4 17Z']];
 const icon = (d) => `<svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true"><path d="${d}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const LBL = new Map();
-for (const l of DATA.labels || []) {
-  const o = LBL.get(l.floor_plan_id) || {};
-  o[l.attribute_key] = l.value; if (l.status === 'pending') o.pending = true;
-  LBL.set(l.floor_plan_id, o);
+const UNIT0 = new Map(DATA.units.map((u) => [u.id, { view_of: u.view_of, facing: u.facing }]));
+// Rebuild labels from the exported data, before review answers are applied on top (used after an undo).
+function resetLabels() {
+  LBL.clear();
+  for (const l of DATA.labels || []) {
+    const o = LBL.get(l.floor_plan_id) || {};
+    o[l.attribute_key] = l.value; if (l.status === 'pending') o.pending = true;
+    LBL.set(l.floor_plan_id, o);
+  }
+  for (const u of DATA.units) { Object.assign(u, UNIT0.get(u.id)); u.viewReviewed = false; }
 }
+resetLabels();
 function layoutOf(pid) {
   const o = LBL.get(pid) || {};
   return { k: o.kitchen_shape ?? null, island: o.kitchen_island ?? null, walkin: o.walk_in_shower ?? null, tub: o.has_tub ?? null, pending: !!o.pending, any: !!LBL.get(pid) };
@@ -776,18 +792,19 @@ function pagePlan(id) {
       <div class="stack" style="gap:10px">
         <h2 style="font-size:24px">Units with this plan</h2>
         ${units.length ? `<div class="card tablecard"><table class="units">
-          <thead><tr><th scope="col">Unit</th><th scope="col">Floor</th><th scope="col">Sq ft</th><th scope="col">Status</th><th scope="col">Rent · move-in</th><th scope="col"><span class="sr">Watch</span></th></tr></thead>
+          <thead><tr><th scope="col">Unit</th><th scope="col">Floor</th><th scope="col">Faces</th><th scope="col">Sq ft</th><th scope="col">Status</th><th scope="col">Rent · move-in</th><th scope="col"><span class="sr">Watch</span></th></tr></thead>
           <tbody>${units.map((u) => {
             const o = unitOpen(u), r = o ? unitRent(u) : null, key = 'u' + u.id, ex = expanded.has(key);
             const last = (winU.get(u.id) || []).filter((w) => w.closed_at).pop();
             return `<tr class="row">
               <td class="c-unit"><button type="button" class="unitbtn" data-expand="${key}" aria-expanded="${ex}" aria-label="${esc(unitName(u))} details"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2.5 7.5 6 4 9.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>${esc(u.unit_number || '—')}</button></td>
               <td data-l="Floor" class="mono">${u.floor ?? '—'}${u.is_top_floor ? ' <span class="pill acc">Top</span>' : ''}</td>
+              <td data-l="Faces">${u.view_of ? esc(viewLabel(u.view_of) || u.view_of) : '<span class="muted">—</span>'}</td>
               <td data-l="Sq ft" class="mono">${u.sqft ?? '—'}</td>
               <td><span class="pill ${o ? 'ok' : 'off'}">${o ? 'Available' : last ? 'Leased ' + fmtDay(last.closed_at.slice(0, 10)) : 'Not listed'}</span></td>
               <td class="mono">${r ? money(r.rent) + (r.on ? ' · ' + (r.on <= todayISO ? 'now' : fmtDay(r.on)) : '') : '—'}</td>
               <td class="c-watch"><button type="button" class="star" data-watch="unit:${u.id}" aria-pressed="${watching('unit', u.id)}" aria-label="Watch ${esc(unitName(u))}">${watching('unit', u.id) ? '★' : '☆'}</button></td>
-            </tr>${ex ? `<tr class="detail"><td colspan="6"><div class="detailgrid">
+            </tr>${ex ? `<tr class="detail"><td colspan="7"><div class="detailgrid">
               <div><div class="dlabel">Rent by lease length</div>${o ? barsFor(r?.all) : '<p class="muted small" style="margin:0">Not listed right now.</p>'}</div>
               <div><div class="dlabel">When it could come back</div><p style="margin:0">${comeBack(u)}</p></div>
               <div><div class="dlabel">Tracked</div><p style="margin:0" class="small">First seen ${esc(fmtDate(u.first_seen_at))}.<br>Listed ${(winU.get(u.id) || []).length} ${(winU.get(u.id) || []).length === 1 ? 'time' : 'times'} since.</p><p style="margin:10px 0 0"><a href="#/unit/${u.id}">Open unit page</a></p></div>
@@ -873,8 +890,8 @@ function pageUnit(id) {
       </section>
       <section class="stack" style="gap:8px;border-top:1px solid var(--line);padding-top:18px">
         <h2 style="font-size:24px">Where it sits</h2>
-        <p style="margin:0">${esc(join(u.floor ? 'Floor ' + u.floor + (floors ? ' of ' + floors : '') : null, u.is_top_floor ? 'Top floor' : null, u.facing ? 'Faces ' + u.facing : null, u.view_of ? 'View of ' + u.view_of : null)) || '<span class="muted">Floor and direction not known yet.</span>'}</p>
-        <p class="small muted" style="margin:0">Which way each unit faces comes in a later update.</p>
+        <p style="margin:0">${esc(join(u.floor ? 'Floor ' + u.floor + (floors ? ' of ' + floors : '') : null, u.is_top_floor ? 'Top floor' : null, u.view_of ? 'Faces ' + (viewLabel(u.view_of) || u.view_of).toLowerCase() : null, u.facing ? 'windows to the ' + (DIRS.find((d) => d[0] === u.facing) || [, u.facing])[1].toLowerCase() : null)) || '<span class="muted">Floor and direction not known yet.</span>'}</p>
+        ${u.view_of ? '' : `<p class="small muted" style="margin:0">Which way it faces isn't known yet. <a href="#/review">Help check units</a></p>`}
       </section>
     </aside>
   </div>
@@ -973,7 +990,146 @@ function reviewQueue() {
 }
 let reviewSkip = new Set(), reviewAns = {}, reviewMsg = '';
 const KSHAPES = [['u_shape', 'U-shape'], ['l_shape', 'L-shape'], ['galley', 'Galley'], ['single_wall', 'One wall']];
+let reviewTab = store.get('reviewTab', 'layouts');
+const reviewHead = (tab, intro) => `<h1 class="display" style="font-size:44px">Review</h1>
+  <div class="tabs" role="tablist" aria-label="What to review">${[['layouts', 'Floor plan layouts', reviewQueue().length], ['facing', 'Which way units face', facingLeft()]].map(([k, l, n]) => `<button type="button" class="tab" role="tab" aria-selected="${tab === k}" data-rtab="${k}">${l} · ${n} left</button>`).join('')}</div>
+  <p class="muted" style="margin:10px 0 0">${intro} Anyone can answer; every answer is kept, so a bad one can be undone.</p>`;
+const progressBox = (done, total, label, skipped = 0, kind = '') => `<div style="min-width:280px;display:flex;flex-direction:column;gap:6px"><div style="display:flex;justify-content:space-between" class="small"><span><strong>${done}</strong> <span class="muted">of ${total} ${label}</span></span><span class="muted">${total - done} left</span></div><div class="track" style="height:8px"><div class="fill" style="width:${total ? (done / total * 100).toFixed(1) : 0}%;background:var(--okFg)"></div></div>${skipped ? `<span class="small muted">${skipped} skipped · <button type="button" class="linkbtn" data-unskip="${kind}">Show them</button></span>` : ''}</div>`;
+const facingLeft = () => DATA.units.filter((u) => mapFor(B.get(u.building_id)) && !u.viewReviewed).length;
+// Saves wait ~6 s so they can be undone, then go to the database. Leaving the page sends them right away.
+const UNDO_MS = 6000;
+let pendingSave = null;
+// Answers are kept in this browser right away (so the next item shows), tagged with a batch id.
+const storeKey = (kind) => kind === 'layouts' ? 'reviews' : 'unitReviews';
+const reapply = () => { resetLabels(); applyReviews(); applyUnitReviews(); };
+function queueSave(kind, rows, label) {
+  flushSave();
+  const batch = Date.now() + ':' + Math.random().toString(36).slice(2, 7), now = new Date().toISOString();
+  const keep = (r) => kind === 'layouts' ? { floor_plan_id: r.floor_plan_id } : { unit_id: r.unit_id };
+  store.set(storeKey(kind), [...store.get(storeKey(kind), []), ...rows.map((r) => ({ ...keep(r), attribute_key: r.attribute_key, value: r.value, created_at: now, saved: false, batch }))]);
+  const job = { kind, rows, label, batch };
+  job.timer = setTimeout(() => sendSave(job), UNDO_MS);
+  pendingSave = job;
+  reapply(); render(); window.scrollTo(0, 0);
+}
+async function sendSave(job) {
+  if (pendingSave === job) pendingSave = null;
+  clearTimeout(job.timer);
+  const [saved, msg] = await postLabels(job.rows);
+  store.set(storeKey(job.kind), store.get(storeKey(job.kind), []).map((r) => r.batch === job.batch ? { ...r, saved } : r));
+  if (job.kind === 'layouts') reviewMsg = saved ? '' : msg; else facingMsg = saved ? '' : msg;
+  render();
+}
+function flushSave() { if (pendingSave) sendSave(pendingSave); }
+function undoSave() {
+  const job = pendingSave; if (!job) return;
+  clearTimeout(job.timer); pendingSave = null;
+  store.set(storeKey(job.kind), store.get(storeKey(job.kind), []).filter((r) => r.batch !== job.batch));
+  reapply(); render(); window.scrollTo(0, 0);
+}
+window.addEventListener('pagehide', () => {
+  const job = pendingSave; if (!job) return;
+  const cfg = DATA.config || {};
+  if (cfg.supabaseUrl && cfg.supabaseKey) fetch(cfg.supabaseUrl.replace(/\/$/, '') + '/rest/v1/labels', { method: 'POST', keepalive: true, headers: { apikey: cfg.supabaseKey, Authorization: 'Bearer ' + cfg.supabaseKey, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify(job.rows) });
+});
+const undoLine = (kind, keys) => pendingSave?.kind === kind
+  ? `<p class="undomsg" role="status">${esc(pendingSave.label)} <button type="button" class="linkbtn" id="undo" style="font-weight:500">Undo</button></p>`
+  : `<p class="small muted" style="margin:2px 0 0;text-align:center" aria-live="polite">${esc(kind === 'layouts' ? reviewMsg : facingMsg) || keys}</p>`;
+
+// ---------- which way units face ----------
+const VIEWS = [['courtyard', 'Courtyard'], ['street', 'Street'], ['park', 'Park or trees'], ['pool', 'Pool'], ['building', 'Another building']];
+const DIRS = [['N', 'North'], ['E', 'East'], ['S', 'South'], ['W', 'West']];
+const viewLabel = (v) => (VIEWS.find((x) => x[0] === v) || [])[1];
+const localUnitReviews = () => store.get('unitReviews', []);
+function applyUnitReviews() {
+  for (const r of [...(DATA.unitReviews || []), ...localUnitReviews()].sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))) {
+    const u = U.get(r.unit_id) || U.get(String(r.unit_id)) || U.get(Number(r.unit_id)); if (!u) continue;
+    if (r.attribute_key === 'view_of') { u.view_of = r.value; u.viewReviewed = true; }
+    if (r.attribute_key === 'facing') u.facing = r.value;
+  }
+}
+// Units in the same spot on other floors share a number once the floor digit is removed
+// (The Watson 104/204/304; Griffis 1006/2006, 5109/5209). The floor digit's position is
+// whichever position matches the unit's floor most often in that building.
+const stackPos = new Map();
+function stackKey(u) {
+  if (!stackPos.has(u.building_id)) {
+    const votes = {};
+    for (const x of DATA.units) if (x.building_id === u.building_id && x.unit_number && x.floor != null && x.floor < 10)
+      [...x.unit_number].forEach((c, i) => { if (c === String(x.floor)) votes[i] = (votes[i] || 0) + 1; });
+    const best = Object.entries(votes).sort((a, b) => b[1] - a[1])[0];
+    stackPos.set(u.building_id, best ? Number(best[0]) : -1);
+  }
+  const i = stackPos.get(u.building_id), n = u.unit_number || '';
+  return i < 0 || n[i] !== String(u.floor) ? 'u' + u.id : u.building_id + ':' + n.slice(0, i) + '*' + n.slice(i + 1);
+}
+const mapFor = (b) => b?.sightmap_url || (/sightmap\.com\/embed/.test(b?.availability_url || '') ? b.availability_url : null);
+let facingSkip = new Set(), facingAns = {}, facingStack = true, facingMsg = '';
+function facingQueue() {
+  const groups = new Map();
+  for (const u of DATA.units) {
+    if (!mapFor(B.get(u.building_id))) continue;
+    const k = stackKey(u);
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(u);
+  }
+  const listed = (u) => (winU.get(u.id) || []).length;
+  const q = [];
+  for (const [key, units] of groups) {
+    if (units.every((u) => u.viewReviewed)) continue;
+    units.sort((a, b) => listed(b) - listed(a) || (a.floor ?? 0) - (b.floor ?? 0));
+    q.push({ key, units, lead: units.find((u) => !u.viewReviewed) || units[0], score: units.reduce((n, u) => n + listed(u), 0) });
+  }
+  return q.sort((a, b) => b.score - a.score || String(a.lead.unit_number).localeCompare(String(b.lead.unit_number)));
+}
+function pageFacing() {
+  const all = DATA.units.filter((u) => mapFor(B.get(u.building_id)));
+  const done = all.filter((u) => u.viewReviewed).length;
+  const q = facingQueue().filter((g) => !facingSkip.has(g.key));
+  const head = `<div style="display:flex;flex-wrap:wrap;gap:12px 24px;justify-content:space-between;align-items:flex-end;margin-bottom:24px">
+    <div>${reviewHead('facing', "Find each unit on the building's map and say what its windows look out on.")}</div>
+    ${progressBox(done, all.length, 'units checked', facingSkip.size, 'facing')}</div>`;
+  const where = `<section style="margin-top:32px;padding-top:24px;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px 32px"><h2 style="font-size:24px">Where this shows up</h2><p class="small muted" style="margin:0">Answers fill the Faces column on plan pages and "Where it sits" on unit pages. Claude doesn't guess these yet, so every unit starts empty. Units listed most often come first.</p></section>`;
+  if (!q.length) return head + `<div class="emptybox"><strong>${facingQueue().length ? "You've skipped the rest for now." : 'Every unit is checked. Nice work.'}</strong><span class="muted">${facingQueue().length ? 'Reload the page to see skipped units again.' : 'New units show up here as buildings list them.'}</span></div>` + where;
+  const g = q[0], u = g.lead, b = B.get(u.building_id), p = P.get(u.floor_plan_id), map = mapFor(b);
+  const others = g.units.filter((x) => x !== u);
+  const chips = (key, opts, extra = []) => [...opts, ...extra].map(([v, l]) => `<button type="button" class="chip" aria-pressed="${same(facingAns[key] ?? undefined, v) && key in facingAns}" data-fv="${key}:${esc(JSON.stringify(v))}">${l}</button>`).join('');
+  const ready = 'view_of' in facingAns;
+  return head + `<div class="reviewgrid">
+    <section aria-label="Unit to review" class="stack" style="gap:12px;min-width:0">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap"><h2 style="font-size:30px">Unit ${esc(u.unit_number || '?')} <span class="muted" style="font-size:16px">· ${esc(b.name)} · floor ${u.floor ?? '?'}${p ? ' · ' + esc(p.name) : ''}</span></h2>
+        <a href="${esc(map)}" target="_blank" rel="noopener noreferrer">Open map full size ↗</a></div>
+      <div class="mapframe"><iframe src="${esc(map)}" title="${esc(b.name)} community map" loading="lazy" referrerpolicy="no-referrer"></iframe></div>
+      <p class="small muted" style="margin:0">The building's own community map. Pick floor ${u.floor ?? ''} and find unit ${esc(u.unit_number || '')}, then look at which side of the building its windows are on.</p>
+    </section>
+    <aside class="card" aria-label="Where it faces" style="padding:22px;display:flex;flex-direction:column;gap:18px">
+      <fieldset id="fview" class="${facingNudge ? 'nudge' : ''}" style="border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:8px"><legend style="padding:0;margin:0 0 8px;display:flex;justify-content:space-between;width:100%"><span class="flabel">Windows face</span><span class="small" style="color:${facingNudge ? 'var(--accent)' : 'var(--muted)'}">${facingNudge ? 'Pick one to save' : 'pick one'}</span></legend><div class="chips">${chips('view_of', VIEWS, [[null, 'Not sure']])}</div></fieldset>
+      <fieldset style="border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:8px"><legend style="padding:0;margin:0 0 8px;display:flex;justify-content:space-between;width:100%"><span class="flabel">Direction</span><span class="small muted">optional</span></legend><div class="chips">${chips('facing', DIRS)}</div></fieldset>
+      ${others.length ? `<label style="display:flex;gap:10px;align-items:flex-start;font-size:14px;cursor:pointer"><input type="checkbox" id="fstack" ${facingStack ? 'checked' : ''} style="margin-top:3px;width:16px;height:16px;accent-color:var(--ink)"><span>Same for the units in this spot on other floors<span class="small muted" style="display:block">${esc(others.map((x) => x.unit_number).join(', '))}</span></span></label>` : ''}
+      <div style="display:flex;flex-direction:column;gap:8px;padding-top:16px;border-top:1px solid var(--line)">
+        <button type="button" class="btn primary" id="fsave" ${ready ? '' : 'aria-disabled="true" style="opacity:.45"'}>${ready ? 'Save' : 'Pick what it faces'}</button>
+        <button type="button" class="btn sm" id="fskip">Skip for now</button>
+        ${undoLine('facing', 'Keys: 1–5 what it faces · Enter save · S skip')}
+      </div>
+    </aside>
+  </div>` + where;
+}
+let facingNudge = false;
+function saveFacing() {
+  const g = facingQueue().filter((x) => !facingSkip.has(x.key))[0]; if (!g) return;
+  if (!('view_of' in facingAns)) { facingNudge = true; render(); document.getElementById('fview')?.querySelector('button')?.focus(); return; }
+  const units = facingStack ? g.units : [g.lead];
+  const rows = [];
+  for (const u of units) {
+    rows.push({ unit_id: u.id, attribute_key: 'view_of', value: facingAns.view_of, source: 'user', status: 'accepted' });
+    if (facingAns.facing) rows.push({ unit_id: u.id, attribute_key: 'facing', value: facingAns.facing, source: 'user', status: 'accepted' });
+  }
+  facingAns = {}; facingMsg = ''; facingNudge = false;
+  queueSave('facing', rows, units.length === 1 ? 'Saved unit ' + g.lead.unit_number + '.' : 'Saved unit ' + g.lead.unit_number + ' and ' + (units.length - 1) + ' more.');
+}
+
 function pageReview() {
+  if (reviewTab === 'facing') return pageFacing();
   const q = reviewQueue().filter((g) => !reviewSkip.has(g.key));
   const total = DATA.floorPlans.length;
   const left = reviewQueue().length, doneCount = total - left;
@@ -981,8 +1137,8 @@ function pageReview() {
   const trustCards = ATTRS.map(([a, label]) => { const s = trust[a];
     return `<div class="card" style="padding:16px;display:flex;flex-direction:column;gap:8px"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><strong style="font-weight:500">${label}</strong><span class="pill ${s.trusted ? 'ok' : 'off'}">${s.trusted ? 'Auto-approving' : Math.min(s.streak, TRUST_STREAK) + ' / ' + TRUST_STREAK + ' in a row'}</span></div><div class="track" style="height:6px"><div class="fill best" style="width:${Math.min(100, s.streak / TRUST_STREAK * 100).toFixed(0)}%"></div></div><span class="small muted">${s.n ? 'Matched you ' + s.ok + ' of ' + s.n + ' times' : 'No reviews yet'}</span></div>`; }).join('');
   const head = `<div style="display:flex;flex-wrap:wrap;gap:12px 24px;justify-content:space-between;align-items:flex-end;margin-bottom:24px">
-    <div><h1 class="display" style="font-size:44px">Review layouts</h1><p class="muted" style="margin:6px 0 0">Least-confident plans first. Fix anything Claude got wrong, or confirm it with one click.</p></div>
-    <div style="min-width:280px;display:flex;flex-direction:column;gap:6px"><div style="display:flex;justify-content:space-between" class="small"><span><strong>${doneCount}</strong> <span class="muted">of ${total} plans checked</span></span><span class="muted">${left} left</span></div><div class="track" style="height:8px"><div class="fill" style="width:${(doneCount / total * 100).toFixed(1)}%;background:var(--okFg)"></div></div></div>
+    <div>${reviewHead('layouts', 'Least-confident plans first. Fix anything Claude got wrong, or confirm it with one click.')}</div>
+    ${progressBox(doneCount, total, 'plans checked', reviewSkip.size, 'layouts')}
   </div>`;
   const trustSec = `<section style="margin-top:32px;padding-top:24px;border-top:1px solid var(--line)" aria-labelledby="trusth">
     <div style="margin-bottom:16px"><h2 id="trusth" style="font-size:24px">When can you stop?</h2><p class="small muted" style="margin:6px 0 0;max-width:72ch">Every answer is scored against Claude's guess. After ${TRUST_STREAK} matches in a row on one question, new guesses of that kind that Claude is at least ${TRUST_MIN_CONF * 100}% sure of are approved automatically. Unsure ones still come here, and one miss resets the streak.</p></div>
@@ -1010,30 +1166,30 @@ function pageReview() {
       <div style="display:flex;flex-direction:column;gap:8px;padding-top:16px;border-top:1px solid var(--line)">
         <button type="button" class="btn primary" id="rsave">${changed ? 'Save corrections' : 'Looks right'}</button>
         <button type="button" class="btn sm" id="rskip">Skip for now</button>
-        <p class="small muted" style="margin:2px 0 0;text-align:center" aria-live="polite">${esc(reviewMsg) || 'Keys: 1–4 kitchen shape · Enter save · S skip'}</p>
+        ${undoLine('layouts', 'Keys: 1–4 kitchen shape · Enter save · S skip')}
       </div>
     </aside>
   </div>` + trustSec;
 }
-async function saveReview() {
+// Adds review answers to the labels table (insert-only). Returns [saved, message if not].
+async function postLabels(rows) {
+  const cfg = DATA.config || {};
+  if (!cfg.supabaseUrl || !cfg.supabaseKey) return [false, "Saving to the database isn't set up yet, so answers are kept in this browser."];
+  try {
+    const res = await fetch(cfg.supabaseUrl.replace(/\/$/, '') + '/rest/v1/labels', { method: 'POST', headers: { apikey: cfg.supabaseKey, Authorization: 'Bearer ' + cfg.supabaseKey, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify(rows) });
+    return res.ok ? [true, ''] : [false, "Couldn't save (" + res.status + '). Your answers are kept in this browser.'];
+  } catch { return [false, "Couldn't reach the database. Your answers are kept in this browser."]; }
+}
+function saveReview() {
   const g = reviewQueue().filter((x) => !reviewSkip.has(x.key))[0]; if (!g) return;
-  const now = new Date().toISOString(), rows = [];
+  const rows = [];
   for (const p of g.plans) for (const [a] of ATTRS) {
     const guess = guessOf(g.lead.id, a)?.value ?? null;
     const value = a in reviewAns ? reviewAns[a] : guess;
     rows.push({ floor_plan_id: p.id, attribute_key: a, value, source: 'user', status: same(value, guess) ? 'accepted' : 'corrected' });
   }
-  const cfg = DATA.config || {};
-  let saved = false;
-  if (cfg.supabaseUrl && cfg.supabaseKey) {
-    try {
-      const res = await fetch(cfg.supabaseUrl.replace(/\/$/, '') + '/rest/v1/labels', { method: 'POST', headers: { apikey: cfg.supabaseKey, Authorization: 'Bearer ' + cfg.supabaseKey, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify(rows) });
-      saved = res.ok;
-      reviewMsg = saved ? 'Saved. ' + g.lead.name + ' is checked.' : "Couldn't save (" + res.status + '). Your answers are kept in this browser.';
-    } catch { reviewMsg = "Couldn't reach the database. Your answers are kept in this browser."; }
-  } else reviewMsg = "Saving to the database isn't set up yet, so answers are kept in this browser.";
-  store.set('reviews', [...localReviews(), ...rows.map((r) => ({ floor_plan_id: r.floor_plan_id, attribute_key: r.attribute_key, value: r.value, created_at: now, saved }))]);
-  reviewAns = {}; applyReviews(); render();
+  reviewAns = {}; reviewMsg = '';
+  queueSave('layouts', rows, 'Saved ' + g.lead.name + '.');
 }
 
 function notFound() {
@@ -1083,6 +1239,16 @@ app.addEventListener('click', (e) => {
   if (f) { const [k, v] = f.dataset.f.split(':'); if (k === 'reset' || k === 'resetall') { Object.assign(filt, { b: 'all', beds: 'any', max: 'any' }); if (k === 'resetall') { LAY.k = []; LAY.b = []; store.set('layout', LAY); } store.set('filters', filt); render(); } else setFilt(k, v); return; }
   const bf = e.target.closest('[data-bf]');
   if (bf) { const [k, v] = bf.dataset.bf.split(':'); if (k === 'reset') { bFilt.beds = 'any'; bFilt.avail = false; bFilt.max = 'any'; } else if (k === 'avail') bFilt.avail = !bFilt.avail; else if (k === 'more') bFilt.more = !bFilt.more; else bFilt[k] = v; render(); return; }
+  const rt = e.target.closest('[data-rtab]');
+  if (rt) { reviewTab = rt.dataset.rtab; store.set('reviewTab', reviewTab); render(); return; }
+  if (e.target.closest('#undo')) { undoSave(); return; }
+  const us = e.target.closest('[data-unskip]');
+  if (us) { if (us.dataset.unskip === 'layouts') reviewSkip = new Set(); else facingSkip = new Set(); render(); return; }
+  const fv = e.target.closest('[data-fv]');
+  if (fv) { const i = fv.dataset.fv.indexOf(':'), k = fv.dataset.fv.slice(0, i), v = JSON.parse(fv.dataset.fv.slice(i + 1)); if (k === 'facing' && facingAns.facing === v) delete facingAns.facing; else facingAns[k] = v; facingMsg = ''; if (k === 'view_of') facingNudge = false; render(); return; }
+  if (e.target.closest('#fstack')) { facingStack = e.target.closest('#fstack').checked; return; }
+  if (e.target.closest('#fsave')) { saveFacing(); return; }
+  if (e.target.closest('#fskip')) { const g = facingQueue().filter((x) => !facingSkip.has(x.key))[0]; if (g) facingSkip.add(g.key); facingAns = {}; facingMsg = ''; render(); window.scrollTo(0, 0); return; }
   const rv = e.target.closest('[data-rv]');
   if (rv) { const i = rv.dataset.rv.indexOf(':'); reviewAns[rv.dataset.rv.slice(0, i)] = JSON.parse(rv.dataset.rv.slice(i + 1)); reviewMsg = ''; render(); return; }
   if (e.target.closest('#rsave')) { saveReview(); return; }
@@ -1096,12 +1262,19 @@ let lastPage = '';
 window.addEventListener('hashchange', () => { const p = location.hash.split('/')[1] || ''; render(); if (p !== lastPage || true) window.scrollTo(0, 0); lastPage = p; });
 document.addEventListener('keydown', (e) => {
   if ((location.hash.split('/')[1] || '') !== 'review' || e.target.closest('input,select,textarea') || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (reviewTab === 'facing') {
+    if (e.key >= '1' && e.key <= '5') { facingAns.view_of = VIEWS[Number(e.key) - 1][0]; facingNudge = false; render(); }
+    else if (e.key === 'Enter' && !e.target.closest('button,a')) { e.preventDefault(); saveFacing(); }
+    else if (e.key === 's' || e.key === 'S') document.getElementById('fskip')?.click();
+    return;
+  }
   if (e.key >= '1' && e.key <= '4') { reviewAns.kitchen_shape = KSHAPES[Number(e.key) - 1][0]; render(); }
   else if (e.key === 'Enter' && !e.target.closest('button,a')) { e.preventDefault(); saveReview(); }
   else if (e.key === 's' || e.key === 'S') document.getElementById('rskip')?.click();
 });
 document.getElementById('foot').innerHTML = `Data checked ${esc(fmtDate(lastChecked))} at ${fmtTime(lastChecked)} Austin time. Prices and availability come from each building's own site and can change; confirm with the building before you apply.`;
 applyReviews();
+applyUnitReviews();
 render();
 })();
 </script>
