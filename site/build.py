@@ -7,10 +7,6 @@ import json, os, pathlib, re, sys
 
 here = pathlib.Path(__file__).parent
 data = json.loads(pathlib.Path(sys.argv[1]).read_text())
-# Simplified floor plan drawings (labels/plan-drawings.json), keyed "Building|Plan".
-drawings = json.loads((here.parent / 'labels' / 'plan-drawings.json').read_text())
-data['drawings'] = drawings['drawings']
-data['planDrawings'] = {p['building'] + '|' + p['plan']: p['drawing'] for p in drawings['plans']}
 data['config'] = {'supabaseUrl': re.sub(r'(/rest/v1)?/*$', '', os.environ.get('SUPABASE_URL', '').strip()), 'supabaseKey': os.environ.get('SUPABASE_ANON_KEY', '')}
 blob = json.dumps(data, separators=(',', ':')).replace('</', '<\\/')
 out = here.parent / 'site-public'
