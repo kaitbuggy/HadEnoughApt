@@ -74,8 +74,11 @@ jobs:
           SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
         run: |
           # Noise and walking data, if the "Area data" workflow has run.
-          if git fetch -q origin area-data 2>/dev/null; then
-            git show origin/area-data:area.json > "$RUNNER_TEMP/area.json" && export AREA_DATA="$RUNNER_TEMP/area.json"
+          if git fetch -q origin area-data 2>/dev/null && git show FETCH_HEAD:area.json > "$RUNNER_TEMP/area.json"; then
+            export AREA_DATA="$RUNNER_TEMP/area.json"
+            echo "Using area data from $(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["generatedAt"])' "$AREA_DATA")"
+          else
+            echo "No area data yet; the Around this unit section is skipped."
           fi
           python3 site/build.py scraper/out/site-data.json
       - name: Package the website
