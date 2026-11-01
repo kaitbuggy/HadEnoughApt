@@ -71,9 +71,9 @@ class NoiseMap:
         ti = info['tileInfo']
         self.origin = (ti['origin']['x'], ti['origin']['y'])
         self.size = ti['rows']
-        # Finest level that still has data (~20 m pixels or coarser).
-        lods = [l for l in ti['lods'] if l['resolution'] >= 9]
-        self.lod = lods[-1]
+        # Finest cached level (the map's data is on a ~30 m grid).
+        max_lod = info.get('maxLOD', 12)
+        self.lod = next(l for l in ti['lods'] if l['level'] == max_lod)
         legend = next(l for l in jget(NOISE + '/legend?f=json')['layers'] if l['legend'] and l['legend'][0].get('label'))
         self.bands = []
         for item in legend['legend']:
@@ -153,20 +153,20 @@ def nearest_on_way(p, geom):
 def noise_sources(lat, lng):
     d = overpass(f"""[out:json][timeout:90];
 (way(around:1200,{lat},{lng})[highway~"^(motorway|trunk|primary|secondary)$"][name];
- way(around:1600,{lat},{lng})[railway~"^(rail|light_rail)$"];);out geom tags;""")
+ way(around:1600,{lat},{lng})[railway~"^(rail|light_rail)$"][!construction];);out geom tags;""")
     roads, rails = {}, {}
     for w in d['elements']:
         t = w.get('tags', {})
         dist = nearest_on_way((lat, lng), w['geometry'])
         if 'highway' in t:
-            n = t.get('ref') if t['highway'] in ('motorway', 'trunk') and t.get('ref') else t['name']
+            n = t['name']
             rank = {'motorway': 0, 'trunk': 1, 'primary': 2, 'secondary': 3}[t['highway']]
             if n not in roads or dist < roads[n][0]:
                 roads[n] = (dist, rank)
         else:
-            n = t.get('name') or ('Red Line rail' if 'metro' in (t.get('operator') or '').lower() or 'capital' in (t.get('operator') or '').lower() else 'Rail line')
-            if 'Red Line' in n or 'MetroRail' in n:
-                n = 'Red Line rail'
+            ops = ' '.join(t.get(k, '') for k in ('name', 'alt_name', 'operator')).lower()
+            n = ('Red Line rail' if 'capmetro' in ops or 'capital metro' in ops
+                 else 'Union Pacific freight rail' if 'union pacific' in ops else 'Rail line')
             if n not in rails or dist < rails[n]:
                 rails[n] = dist
     out = sorted(([n, v[0], v[1]] for n, v in roads.items()), key=lambda r: (r[1] > 400, r[2], r[1]))[:2]
@@ -197,7 +197,7 @@ node(around:{r},{lat},{lng})[highway=street_lamp];out skel;
         if e.get('tags', {}).get('leisure') == 'park' or (e['type'] == 'way' and _is_trail(e)):
             dests.append(e)
     # Graph: node key = rounded coordinate.
-    graph, lit_of = {}, {}
+    graph = {}
     lamp_grid = {}
     for la, lo in lamps:
         lamp_grid.setdefault((round(la, 3), round(lo, 3)), []).append((la, lo))
@@ -307,17 +307,23 @@ def _is_trail(e):
 
 
 # ---------- Austin 311 ----------
+# Police noise requests left 311 in Oct 2025, so this averages the last 3 years of
+# every noise-type request (police noise/alarm, outdoor venue music) within 400 m.
+COMPLAINT_YEARS = 3
+
+
 def complaints(lat, lng):
-    since = (dt.date.today() - dt.timedelta(days=365)).isoformat()
-    where = (f"sr_type_desc='APD - Non Emergency Noise/Alarm' AND within_circle(sr_location_lat_long,{lat},{lng},400) "
-             f"AND sr_created_date>'{since}'")
+    since = (dt.date.today() - dt.timedelta(days=365 * COMPLAINT_YEARS)).isoformat()
+    where = (f"(lower(sr_type_desc) like '%noise%' OR lower(sr_type_desc) like '%music complaint%') "
+             f"AND within_circle(sr_location_lat_long,{lat},{lng},400) AND sr_created_date>'{since}'")
     rows = jget('https://data.austintexas.gov/resource/xwdj-i9he.json?' + urllib.parse.urlencode(
-        {'$select': 'sr_created_date', '$where': where, '$limit': 5000}))
+        {'$select': 'sr_created_date', '$where': where, '$limit': 50000}))
     late = 0
     for r in rows:
         h = int(r['sr_created_date'][11:13])
         late += h >= 22 or h < 6
-    return {'year': len(rows), 'lateNight': late, 'meters': 400}
+    return {'perYear': round(len(rows) / COMPLAINT_YEARS), 'lateNightPerYear': round(late / COMPLAINT_YEARS),
+            'meters': 400, 'years': COMPLAINT_YEARS}
 
 
 def main(site_data, out):
