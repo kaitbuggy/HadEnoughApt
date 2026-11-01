@@ -16,10 +16,12 @@ on:
       - 'scraper/src/export.js'
       - 'scraper/src/apply-labels.js'
       - 'labels/**'
+      - 'tools/check_drawings.py'
       - '.github/workflows/export.yml'
 
 permissions:
   contents: write   # to update the site-data branch only
+  issues: write     # to flag floor plans that need drawings
 
 concurrency:
   group: export
@@ -64,6 +66,21 @@ jobs:
           git add site-data.json
           git commit -qm "Site data $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO}.git" HEAD:refs/heads/site-data
+      - name: Flag floor plans that need drawings
+        if: github.event_name != 'pull_request'
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          body="$(python3 tools/check_drawings.py scraper/out/site-data.json labels/plan-drawings.json)"
+          title="Floor plans need drawings"
+          num="$(gh issue list --state open --search "in:title \"$title\"" --json number --jq '.[0].number')"
+          if [ -n "$body" ]; then
+            body="$body"$'\n\n'"_Updated automatically after each availability check. The weekly drawing task picks these up and opens a PR for review._"
+            if [ -n "$num" ]; then gh issue edit "$num" --body "$body"; else gh issue create --title "$title" --body "$body"; fi
+          elif [ -n "$num" ]; then
+            gh issue close "$num" --comment "Every floor plan has a drawing now."
+          fi
       - name: Build the website
         working-directory: .
         run: python3 site/build.py scraper/out/site-data.json
