@@ -119,9 +119,14 @@ def parse_band(label):
     return v, v + 10
 
 
-def noise_level(nm, lat, lng):
-    """Loudest band at the building and 40 m around it (the side facing traffic)."""
-    pts = [(lat, lng)] + [(lat + 0.00036 * dy, lng + 0.00042 * dx) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))]
+def noise_level(nm, lat, lng, radius=70):
+    """Loudest band within ~70 m of the building point (its street-facing side), and the quietest."""
+    step = 30
+    pts = []
+    for dy in range(-radius, radius + 1, step):
+        for dx in range(-radius, radius + 1, step):
+            if dx * dx + dy * dy <= radius * radius:
+                pts.append((lat + dy / 111320, lng + dx / (111320 * math.cos(math.radians(lat)))))
     samples = [s for s in (nm.sample(*p) for p in pts) if s]
     if not samples:
         return None
@@ -330,6 +335,8 @@ def main(site_data, out):
     data = json.load(open(site_data))
     nm = NoiseMap()
     print('noise bands:', [(b[3], b[0]) for b in nm.bands], file=sys.stderr)
+    for name, p in (('on Burnet Rd', (30.4040, -97.7166)), ('on MoPac', (30.4020, -97.7290)), ('beside MoPac 60m', (30.4020, -97.7283))):
+        print('  check', name, nm.sample(*p), file=sys.stderr)
     result = {'generatedAt': dt.datetime.now(dt.timezone.utc).isoformat(timespec='seconds'), 'buildings': {}}
     for b in data['buildings']:
         loc = geocode(b)
