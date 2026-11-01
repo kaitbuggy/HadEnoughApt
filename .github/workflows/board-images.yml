@@ -1,0 +1,30 @@
+name: Board images (temporary)
+on:
+  push:
+    branches: [board-images]
+permissions:
+  contents: write
+jobs:
+  get:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          mkdir out && cd out
+          while read name url; do curl -sfL -A 'Mozilla/5.0' -o "$name.${url##*.}" "$url" && echo "ok $name" || echo "FAIL $name"; done <<'LIST'
+          milan https://griffisresidential.com/wp-content/uploads/sites/2/2026/11/7db94bb3cf9c07179001a63775589329.jpg
+          milanplat https://griffisresidential.com/wp-content/uploads/sites/2/2026/11/96e20b00dca753d807fba285c89d82c8.jpg
+          shanghai https://griffisresidential.com/wp-content/uploads/sites/2/2026/11/589c72709a1f6af91887c610a287c62b.jpg
+          dubai https://griffisresidential.com/wp-content/uploads/sites/2/2026/11/7c85346fd86efc6c200f5b69056f613c.jpg
+          newyork https://griffisresidential.com/wp-content/uploads/sites/2/2026/11/a6a05ad5aa2000ac1bc8fa7e50005971.jpg
+          capetown https://griffisresidential.com/wp-content/uploads/sites/2/2026/11/33282f3455f1417f085febb2afdb54a1.jpg
+          tokyo https://griffisresidential.com/wp-content/uploads/sites/2/2026/11/61549422a50d374596b5273fafa4a024.jpg
+          london https://griffisresidential.com/wp-content/uploads/sites/2/2026/11/f5cd4d351eaecaed1940ddfb52fc27dc.jpg
+          hongkong https://griffisresidential.com/wp-content/uploads/sites/2/2026/11/bde3c9f20989b75a5e67df8a40943db5.jpg
+          a9 https://cdn.sightmap.com/assets/d7/p1/d7p105o8vkx/5d/d8/5dd898bbf92a5249dfc96833476801c5.png
+          b23 https://cdn.sightmap.com/assets/d7/p1/d7p105o8vkx/2b/61/2b6123b23f021432063e2af952324a3b.png
+          a11 https://cdn.sightmap.com/assets/d7/p1/d7p105o8vkx/2e/1d/2e1d8b0bed5d6b3ae27a488eb2a723d6.png
+          s33 https://cdn.sightmap.com/assets/d7/p1/d7p105o8vkx/61/fe/61fea776e3219936d96a79ad238f6bfc.jpg
+          LIST
+          ls -la
+          git init -q -b board-images-out && git config user.name bot && git config user.email bot@x && git add . && git commit -qm imgs
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:refs/heads/board-images-out
