@@ -77,7 +77,14 @@ main{padding:40px 0 96px}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chip{height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);cursor:pointer;font-size:14px}
 .chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
-select{height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--control);background:var(--surface);color:var(--ink);font:inherit;font-size:14px}
+select{height:36px;padding:0 36px 0 14px;border-radius:999px;border:1px solid var(--control);background-color:var(--surface);color:var(--ink);font:inherit;font-size:14px;appearance:none;-webkit-appearance:none;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5 6 7.5 9 4.5' fill='none' stroke='%2399958A' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center}
+.filterpanel{display:flex;flex-direction:column;gap:14px;padding:20px 22px;background:var(--surface);border:1px solid var(--line);border-radius:20px;margin-bottom:22px}
+.filterpanel .row{display:flex;flex-wrap:wrap;gap:16px 32px;align-items:flex-end}
+.filterpanel .more{border-top:1px solid var(--line);padding-top:14px}
+.morebtn{margin-left:auto}
+.hint{font-weight:400;letter-spacing:0;text-transform:none}
+.sortbox{display:inline-flex;align-items:center;gap:10px}
+.sortbox label{font-size:14px;color:var(--muted)}
 
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 18px;border-radius:999px;font-weight:500;text-decoration:none;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink);white-space:nowrap}
 .btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
@@ -507,6 +514,14 @@ function pageHome() {
   if (layActive()) list = list.filter((x) => layoutMatch(x.u.floor_plan_id, LAY) === 'yes');
   list.sort(filt.sort === 'low' ? (a, b) => (a.r?.rent ?? 1e9) - (b.r?.rent ?? 1e9) : filt.sort === 'soon' ? (a, b) => String(a.r?.on || '9').localeCompare(String(b.r?.on || '9')) : (a, b) => new Date(b.w.opened_at) - new Date(a.w.opened_at) || (a.r?.rent ?? 0) - (b.r?.rent ?? 0));
   const shown = list.slice(0, feedLimit);
+  const bName = filt.b !== 'all' ? B.get(Number(filt.b))?.name : null;
+  const hiddenChips = [
+    bName ? `<button type="button" class="appchip" data-f="b:all" aria-label="Remove filter: ${esc(bName)}">${esc(bName)}<span aria-hidden="true">×</span></button>` : '',
+    filt.beds !== 'any' ? `<button type="button" class="appchip" data-f="beds:any" aria-label="Remove filter: bedrooms">${filt.beds === '0' ? 'Studio' : filt.beds === '2' ? '2+ beds' : '1 bed'}<span aria-hidden="true">×</span></button>` : '',
+    filt.max !== 'any' ? `<button type="button" class="appchip" data-f="max:any" aria-label="Remove filter: max rent">Under ${money(Number(filt.max))}<span aria-hidden="true">×</span></button>` : '',
+  ].filter(Boolean);
+  const hiddenOn = hiddenChips.length;
+  const appliedAll = [...(layActive() ? [appliedChips()] : []), ...hiddenChips];
   const chip = (k, v, label) => `<button type="button" class="chip" aria-pressed="${filt[k] === v}" data-f="${k}:${v}">${esc(label)}</button>`;
   return `
   <section>
@@ -520,20 +535,24 @@ function pageHome() {
     <div><div class="stat" style="color:var(--accent)">${recent}</div><div class="small muted">newly listed today</div></div>
     <div><div class="stat">${young ? esc(fmtDate(trackStart, { month: 'short', day: 'numeric' })) : med}</div><div class="small muted">${young ? 'tracking began; lease timing builds from here' : 'median time before a unit is leased'}</div></div>
   </section>
-  <section class="filters" aria-label="Filters">
-    <div class="fgroup"><span class="flabel" id="fb">Building</span><div class="chips" role="group" aria-labelledby="fb">${chip('b', 'all', 'All')}${tracked.map((b) => chip('b', String(b.id), b.name)).join('')}</div></div>
-    <div class="fgroup"><span class="flabel" id="fbd">Bedrooms</span><div class="chips" role="group" aria-labelledby="fbd">${chip('beds', 'any', 'Any')}${chip('beds', '0', 'Studio')}${chip('beds', '1', '1')}${chip('beds', '2', '2+')}</div></div>
-    <div class="fgroup"><label class="flabel" for="fmax">Max rent</label><select id="fmax" data-fsel="max">${['any', '1500', '2000', '2500', '3000', '4000'].map((v) => `<option value="${v}" ${filt.max === v ? 'selected' : ''}>${v === 'any' ? 'Any' : money(Number(v))}</option>`).join('')}</select></div>
-    <div class="fgroup"><span class="flabel" id="fk">Kitchen shape</span><div class="facets-row" role="group" aria-labelledby="fk">${facetButtons('k', KITCHEN, (v) => homeCount('k', v))}</div></div>
-    <div class="fgroup"><span class="flabel" id="fbt">Bathroom</span><div class="facets-row" role="group" aria-labelledby="fbt">${facetButtons('b', BATH, (v) => homeCount('b', v))}</div></div>
-    <div class="fgroup"><span class="flabel" id="fs">Sort</span><div class="chips" role="group" aria-labelledby="fs">${chip('sort', 'new', 'Newest')}${chip('sort', 'low', 'Lowest rent')}${chip('sort', 'soon', 'Soonest move-in')}</div></div>
+  <section class="filterpanel" aria-label="Filters">
+    <div class="row">
+  <div class="fgroup"><span class="flabel" id="fk">Kitchen shape <span class="hint">· pick any</span></span><div class="facets-row" role="group" aria-labelledby="fk">${facetButtons('k', KITCHEN, (v) => homeCount('k', v))}</div></div>
+  <div class="fgroup"><span class="flabel" id="fbt">Bathroom <span class="hint">· pick any</span></span><div class="facets-row" role="group" aria-labelledby="fbt">${facetButtons('b', BATH, (v) => homeCount('b', v))}</div></div>
+      <button type="button" class="btn sm morebtn" id="morebtn" aria-expanded="${moreOpen}" aria-controls="morefilters"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>${moreOpen ? 'Hide building, beds &amp; rent' : 'Building, beds &amp; rent'}${hiddenOn ? ' · ' + hiddenOn + ' on' : ''}</button>
+    </div>
+    ${moreOpen ? `<div class="row more" id="morefilters">
+  <div class="fgroup"><span class="flabel" id="fb">Building</span><div class="chips" role="group" aria-labelledby="fb">${chip('b', 'all', 'All')}${tracked.map((b) => chip('b', String(b.id), b.name)).join('')}</div></div>
+  <div class="fgroup"><span class="flabel" id="fbd">Bedrooms</span><div class="chips" role="group" aria-labelledby="fbd">${chip('beds', 'any', 'Any')}${chip('beds', '0', 'Studio')}${chip('beds', '1', '1')}${chip('beds', '2', '2+')}</div></div>
+  <div class="fgroup"><label class="flabel" for="fmax">Max rent</label><select id="fmax" data-fsel="max">${['any', '1500', '2000', '2500', '3000', '4000'].map((v) => `<option value="${v}" ${filt.max === v ? 'selected' : ''}>${v === 'any' ? 'Any' : money(Number(v))}</option>`).join('')}</select></div>
+    </div>` : ''}
+    ${appliedAll.length ? `<div class="applied more" aria-label="Applied filters">${appliedAll.join('')}<button type="button" class="linkbtn" data-f="resetall:1">Clear all</button></div>` : ''}
   </section>
   <section aria-labelledby="feedh" class="stack" style="gap:14px">
     <div class="resultsbar">
       <h2 id="feedh" style="font-size:28px" aria-live="polite">${list.length} ${list.length === 1 ? 'opening' : 'openings'}${layActive() ? ' with ' + esc(layWords(LAY)) : ''}</h2>
-      ${layActive() ? searchBtn() : ''}
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">${layActive() ? searchBtn() : ''}<div class="sortbox"><label for="fsort">Sort</label><select id="fsort" data-fsel="sort">${[['new', 'Newest'], ['low', 'Lowest rent'], ['soon', 'Soonest move-in']].map(([v, l]) => `<option value="${v}" ${filt.sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div>
     </div>
-    ${layActive() ? `<div class="applied" aria-label="Applied layout filters">${appliedChips()}<button type="button" class="linkbtn" data-lay="clear">Clear layout</button></div>` : ''}
     ${maybeHome ? `<p class="small muted" style="margin:0">${maybeHome} more ${maybeHome === 1 ? 'unit is' : 'units are'} on plans whose layout isn't labeled yet.</p>` : ''}
     ${list.length ? '' : layActive() ? emptyLayout('in the buildings we track right now') : `<div class="emptybox"><strong>Nothing matches these filters.</strong><span class="muted">Try a higher max rent or another building.</span><button type="button" class="btn sm" data-f="reset:1">Clear filters</button></div>`}
     <div class="feed">${shown.map(({ u, w, r, p }) => {
@@ -556,6 +575,7 @@ function pageHome() {
   </section>`;
 }
 let feedLimit = 20;
+let moreOpen = false;
 function searchBtn() {
   const on = !!W.search[searchKey(LAY)];
   return `<button type="button" class="btn ${on ? 'watching' : ''}" data-wsearch="1" aria-pressed="${on}">${on ? '★ Watching this search' : '☆ Watch this search'}</button>`;
@@ -811,9 +831,10 @@ function render() {
 }
 app.addEventListener('click', (e) => {
   const f = e.target.closest('[data-f]');
-  if (f) { const [k, v] = f.dataset.f.split(':'); if (k === 'reset') { Object.assign(filt, { b: 'all', beds: 'any', max: 'any', sort: 'new' }); store.set('filters', filt); render(); } else setFilt(k, v); return; }
+  if (f) { const [k, v] = f.dataset.f.split(':'); if (k === 'reset' || k === 'resetall') { Object.assign(filt, { b: 'all', beds: 'any', max: 'any' }); if (k === 'resetall') { LAY.k = []; LAY.b = []; store.set('layout', LAY); } store.set('filters', filt); render(); } else setFilt(k, v); return; }
   const bf = e.target.closest('[data-bf]');
   if (bf) { const [k, v] = bf.dataset.bf.split(':'); if (k === 'reset') { bFilt.beds = 'any'; bFilt.avail = false; } else if (k === 'avail') bFilt.avail = !bFilt.avail; else bFilt[k] = v; render(); return; }
+  if (e.target.closest('#morebtn')) { moreOpen = !moreOpen; render(); return; }
   if (e.target.id === 'more') { feedLimit += 20; render(); return; }
   if (e.target.id === 'markall') { store.set('seen', Date.now()); render(); }
 });
