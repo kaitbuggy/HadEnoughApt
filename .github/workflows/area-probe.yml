@@ -12,7 +12,30 @@ jobs:
       - uses: actions/checkout@v5
       - run: pip install pillow
       - run: |
-          git fetch -q origin site-data
-          git show origin/site-data:site-data.json > /tmp/sd.json
-          python3 tools/area_data.py /tmp/sd.json /tmp/area.json
-          cat /tmp/area.json
+          python3 - <<'PY'
+          import json,math,urllib.request,io
+          from PIL import Image
+          N='https://geo.dot.gov/server/rest/services/Hosted/NTAD_Noise_2020_CONUS_Aviation_Road_Rail/MapServer'
+          info=json.load(urllib.request.urlopen(N+'?f=json'))
+          ti=info['tileInfo']; print('origin',ti['origin'],'rows',ti['rows'],'fmt',ti.get('format'))
+          print('lods',[(l['level'],round(l['resolution'],2)) for l in ti['lods']])
+          print('minScale/maxScale', info.get('minScale'), info.get('maxScale'), 'minLOD', info.get('minLOD'), 'maxLOD', info.get('maxLOD'))
+          lat,lng=30.4003,-97.71748
+          x=lng*20037508.342789244/180; y=math.log(math.tan((90+lat)*math.pi/360))*20037508.342789244/math.pi
+          for l in ti['lods']:
+            if l['level']<8: continue
+            res=l['resolution']; px=(x-ti['origin']['x'])/res; py=(ti['origin']['y']-y)/res
+            c,r=int(px//ti['rows']),int(py//ti['rows'])
+            try:
+              d=urllib.request.urlopen(f"{N}/tile/{l['level']}/{r}/{c}").read(); im=Image.open(io.BytesIO(d)).convert('RGBA')
+              print(l['level'],res,'ok',im.size,im.getpixel((int(px%256),int(py%256))))
+            except Exception as e: print(l['level'],res,'ERR',e)
+          PY
+      - run: |
+          for w in "sr_type_desc='APD - Non Emergency Noise/Alarm'" "lower(sr_type_desc) like '%25noise%25' AND sr_created_date>'2024-01-01'"; do
+            curl -s "https://data.austintexas.gov/resource/xwdj-i9he.json?\$select=max(sr_created_date),min(sr_created_date),count(*)&\$where=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1],safe='%'))" "$w")"; echo
+          done
+          curl -s "https://data.austintexas.gov/resource/xwdj-i9he.json?\$select=max(sr_created_date)"; echo
+          curl -s "https://data.austintexas.gov/resource/xwdj-i9he.json?\$select=sr_type_desc,count(*)&\$where=sr_created_date>'2025-11-01'&\$group=sr_type_desc&\$order=count(*)%20desc&\$limit=60" | python3 -c "import json,sys;[print(r) for r in json.load(sys.stdin)]"
+          curl -s "https://data.austintexas.gov/resource/xwdj-i9he.json?\$select=count(*)&\$where=within_circle(sr_location_lat_long,30.4003,-97.71748,400)%20AND%20sr_created_date>'2025-11-01'"; echo
+          curl -s -A x --data-urlencode 'data=[out:json];way(around:1600,30.4003,-97.71748)[railway~"^(rail|light_rail)$"];out tags;' https://overpass-api.de/api/interpreter | python3 -c "import json,sys;[print(e['tags']) for e in json.load(sys.stdin)['elements']]" | sort -u | head
