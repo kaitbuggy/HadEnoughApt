@@ -183,6 +183,16 @@ tbody tr:last-child td{border-bottom:0}
 .nbar .ntick i{display:block;width:1px;height:14px;margin:0 auto 4px;background:var(--muted)}
 .nbar .ntick:first-child{transform:none;text-align:left}.nbar .ntick:first-child i{margin-left:0}
 .nbar .ntick:last-child{transform:translateX(-100%);text-align:right}.nbar .ntick:last-child i{margin-right:0}
+.nbar .ghost{position:absolute;top:0;width:30px;height:30px;margin-left:-15px;border-radius:50%;border:2px dashed var(--ink);background:transparent;box-sizing:border-box;pointer-events:none}
+.nbar .ghost span{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:2px;font-family:var(--mono);font-size:10px;font-weight:600;color:var(--ink);white-space:nowrap}
+.nbar.withghost{margin-top:14px}
+.gmark{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 3px;border-radius:50%;border:1.5px dashed var(--ink);font-family:var(--mono);font-size:9px;font-weight:600;margin-right:6px;vertical-align:middle}
+.cmpline{margin:-8px 0 0;font-size:14px}
+.cmptable{width:100%;border-collapse:collapse;font-size:14px;min-width:520px}
+.cmptable th,.cmptable td{text-align:left;padding:12px 18px;border-bottom:1px solid var(--line);vertical-align:top}
+.cmptable thead th{font-size:13px;font-weight:600}
+.cmptable tbody th{font-weight:400;color:var(--muted)}
+.cmptable tr:last-child>*{border-bottom:0}
 .nbar .nhint{position:absolute;top:32px;left:0;font-size:12px;color:var(--muted);transition:opacity .2s ease}
 .nbar:hover .nticks,.nbar:focus-visible .nticks{opacity:1}.nbar:hover .nhint,.nbar:focus-visible .nhint{opacity:0}
 @media (hover:none){.nbar .nticks{opacity:1}.nbar .nhint{display:none}}
@@ -837,10 +847,44 @@ function pagePlan(id) {
 // ---------- around the building (noise + walking) ----------
 const dist = (m) => m < 320 ? Math.max(50, Math.round(m * 3.281 / 50) * 50) + ' ft' : (m / 1609).toFixed(1) + ' mi';
 const litLabel = (x) => x >= 0.6 ? ['Mostly lit', true] : x >= 0.25 ? ['Partly lit', false] : ['Few mapped lights', false];
+let cmpWith = store.get('compareWith', '');
+const noiseBand = (n) => !n ? '—' : n.low ? `${n.low}–${Math.round(n.high)} dB` : 'under 45 dB';
+const nearestPark = (a) => (a?.walks || []).find((w) => w.kind === 'park') || a?.walks?.[0];
+function compareParts(b, a) {
+  const others = DATA.buildings.filter((x) => x.id !== b.id && DATA.area?.buildings?.[x.id]);
+  if (!others.length) return null;
+  const picker = `<div style="display:inline-flex;align-items:center;gap:10px"><label for="cmp" class="small muted" style="font-size:14px">Compare to</label><select id="cmp" data-cmp="1"><option value="">Choose a building</option>${others.map((x) => `<option value="${x.id}" ${String(cmpWith) === String(x.id) ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></div>`;
+  const ob = others.find((x) => String(x.id) === String(cmpWith));
+  if (!ob) return { picker };
+  const c = DATA.area.buildings[ob.id], mark = bMarks.get(ob.id) || '?';
+  const hp = nearestPark(a), cp = nearestPark(c);
+  const pos = (n) => n ? Math.min(100, Math.max(0, (n.db - 40) / 35 * 100)).toFixed(1) : 0;
+  const ghost = c.noise ? `<div class="ghost" style="left:${pos(c.noise)}%" aria-hidden="true"><span>${esc(mark)}</span></div>` : '';
+  const g = `<span class="gmark" aria-hidden="true">${esc(mark)}</span>`;
+  const noiseLine = c.noise && a.noise ? `<p class="cmpline">${g}${esc(ob.name)}: <strong style="font-weight:600">${esc(c.noise.level)}</strong> <span class="muted">${noiseBand(c.noise)} · ${c.noise.db === a.noise.db ? 'about the same as here' : c.noise.db > a.noise.db ? 'a little louder than here' : 'a little quieter than here'}</span></p>` : '';
+  const walkLine = cp && hp ? `<p class="cmpline">${g}${esc(ob.name)}: <strong style="font-weight:600">${cp.minutes ? cp.minutes + ' min' : 'At door'}</strong> <span class="muted">to ${esc(cp.name)} · ${cp.minutes === hp.minutes ? 'same as here' : cp.minutes > hp.minutes ? (cp.minutes - hp.minutes) + ' min longer than here' : (hp.minutes - cp.minutes) + ' min shorter than here'}</span></p>` : '';
+  const src = (x, re) => (x.sources || []).find((s) => re.test(s.name));
+  const road = (x) => (x.sources || []).filter((s) => !/rail|mopac|expressway|highway|I-35/i.test(s.name)).sort((p, q) => p.meters - q.meters)[0];
+  const B2 = (av, bv, low = true, tol = 0) => av == null || bv == null || Math.abs(av - bv) <= tol ? ['', ''] : (low ? av < bv : av > bv) ? ['font-weight:600', ''] : ['', 'font-weight:600'];
+  const row = (label, at, bt, av, bv, low = true, tol = 0) => { const [x, y] = B2(av, bv, low, tol); return `<tr><th scope="row">${label}</th><td style="${x}">${esc(at)}</td><td style="${y}">${esc(bt)}</td></tr>`; };
+  const fmtSrc = (s) => s ? s.name + ' · ' + dist(s.meters) : '—';
+  const ra = road(a), rc = road(c), ha = src(a, /mopac|expressway|highway|I-35/i), hc = src(c, /mopac|expressway|highway|I-35/i), la = src(a, /rail/i), lc = src(c, /rail/i);
+  const rows = [
+    row('Noise outside (24-hour average)', a.noise ? a.noise.level + ', ' + noiseBand(a.noise) : '—', c.noise ? c.noise.level + ', ' + noiseBand(c.noise) : '—', a.noise?.db, c.noise?.db),
+    row('Nearest major road', fmtSrc(ra), fmtSrc(rc), ra && -ra.meters, rc && -rc.meters),
+    row('Highway', fmtSrc(ha), fmtSrc(hc), ha && -ha.meters, hc && -hc.meters),
+    row('Nearest rail line', fmtSrc(la), fmtSrc(lc), la && -la.meters, lc && -lc.meters),
+    row('Noise complaints within ¼ mi', a.complaints ? 'About ' + a.complaints.perYear + ' a year (' + a.complaints.lateNightPerYear + ' late)' : '—', c.complaints ? 'About ' + c.complaints.perYear + ' a year (' + c.complaints.lateNightPerYear + ' late)' : '—', a.complaints?.perYear, c.complaints?.perYear, true, 3),
+    row('Walk to the nearest park', hp ? (hp.minutes ? hp.minutes + ' min' : 'At door') + ' · ' + hp.name : '—', cp ? (cp.minutes ? cp.minutes + ' min' : 'At door') + ' · ' + cp.name : '—', hp?.meters, cp?.meters),
+  ].join('');
+  const table = `<div class="stack" style="gap:10px"><h3 class="kicker">Side by side</h3><div class="card" style="overflow-x:auto"><table class="cmptable"><thead><tr><th scope="col"><span class="sr">Measure</span></th><th scope="col">${esc(b.name)} <span class="muted" style="font-weight:400">(this unit)</span></th><th scope="col">${esc(ob.name)}</th></tr></thead><tbody>${rows}</tbody></table></div><p class="small muted" style="margin:0">The better value in each row is in bold; small differences aren't marked. Same sources and method for both buildings.</p></div>`;
+  return { picker, ghost, noiseLine, walkLine, table };
+}
 function aroundSection(b) {
   const a = DATA.area?.buildings?.[b.id];
   if (!a || (!a.noise && !a.walks?.length)) return '';
   const n = a.noise, ext = 'target="_blank" rel="noopener"';
+  const cp = compareParts(b, a) || {};
   const under = n && !n.low;
   const band = n ? (under ? 'Under 45 dB' : `${n.low}–${Math.round(n.high)} dB`) : '';
   const pos = n ? Math.min(100, Math.max(0, (n.db - 40) / 35 * 100)).toFixed(1) : 0;
@@ -850,8 +894,9 @@ function aroundSection(b) {
   const noise = n ? `<article aria-labelledby="noiseh">
       <h3 id="noiseh" class="kicker">Noise</h3>
       <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap"><span class="bignum">${n.level}</span><span class="muted">${band} outside, 24-hour average</span></div>
-      <div class="nbar" tabindex="0" aria-label="${band} outside the building. Scale: 40 quiet suburb, 55 city street, 65 busy road, 75 highway.">
-        <div class="rail"></div><div class="done" style="width:${pos}%"></div><div class="knob" style="left:${pos}%"></div>
+      ${cp.noiseLine || ''}
+      <div class="nbar${cp.ghost ? ' withghost' : ''}" tabindex="0" aria-label="${band} outside the building.${cp.ghost ? ' Compared building: ' + esc(DATA.buildings.find((x) => String(x.id) === String(cmpWith))?.name || '') + ', ' + noiseBand(DATA.area.buildings[cmpWith]?.noise) + '.' : ''} Scale: 40 quiet suburb, 55 city street, 65 busy road, 75 highway.">
+        <div class="rail"></div><div class="done" style="width:${pos}%"></div><div class="knob" style="left:${pos}%"></div>${cp.ghost || ''}
         <div class="nticks" aria-hidden="true">${tick(40, 'quiet suburb')}${tick(55, 'city street')}${tick(65, 'busy road')}${tick(75, 'highway')}</div>
         <span class="nhint" aria-hidden="true">Hover to compare</span>
       </div>
@@ -864,12 +909,13 @@ function aroundSection(b) {
   const walk = w.length ? `<article aria-labelledby="walkh">
       <h3 id="walkh" class="kicker">Walking</h3>
       <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap"><span class="bignum">${park.minutes ? park.minutes + ' min' : 'At door'}</span><span class="muted">to ${esc(park.name)}</span></div>
+      ${cp.walkLine || ''}
       <div class="muted" style="min-height:64px;display:flex;align-items:center">${litCount === w.length ? `All ${w.length} nearby walks are mostly lit at night.` : litCount ? `${litCount} of ${w.length} nearby walks are mostly lit at night.` : 'Few streetlights are mapped along these walks. Check them before walking at night.'}</div>
       <ul class="factlist">${w.map((x) => { const [l, on] = litLabel(x.litShare); return `<li><span>${esc(x.name)}</span><span>${x.minutes ? x.minutes + ' min' : 'At door'} · ${dist(x.meters)} · <span style="color:${on ? 'var(--okFg)' : 'var(--muted)'}">${l}</span></span></li>`; }).join('')}</ul>
       <details class="how"><summary>How this is estimated</summary><p>Shortest walk on mapped sidewalks and paths, at about 3 mph. "Mostly lit" means mapped streetlights line most of the route. Streetlight mapping is incomplete, so check a route in person before walking it at night. Source: <a href="https://www.openstreetmap.org" ${ext}>OpenStreetMap ↗</a></p></details>
     </article>` : '';
   const when = DATA.area.generatedAt ? fmtDate(DATA.area.generatedAt, { month: 'long', year: 'numeric' }) : '';
-  return `<section class="around" aria-labelledby="aroundh"><h2 id="aroundh" style="font-size:36px">Around this unit</h2><div class="aroundgrid">${noise}${walk}</div>${when ? `<p class="small muted" style="margin:0">Updated ${esc(when)}.</p>` : ''}</section>`;
+  return `<section class="around" aria-labelledby="aroundh"><div style="display:flex;flex-wrap:wrap;gap:12px 24px;justify-content:space-between;align-items:flex-end"><h2 id="aroundh" style="font-size:36px">Around this unit</h2>${cp.picker || ''}</div><div class="aroundgrid">${noise}${walk}</div>${cp.table || ''}${when ? `<p class="small muted" style="margin:0">Updated ${esc(when)}.</p>` : ''}</section>`;
 }
 function pageUnit(id) {
   const u = U.get(id); if (!u) return notFound();
@@ -1273,7 +1319,7 @@ app.addEventListener('click', (e) => {
   if (e.target.id === 'more') { feedLimit += 20; render(); return; }
   if (e.target.id === 'markall') { store.set('seen', Date.now()); render(); }
 });
-app.addEventListener('change', (e) => { const s = e.target.closest('[data-fsel]'); if (s) setFilt(s.dataset.fsel, s.value); const bs = e.target.closest('[data-bsel]'); if (bs) { bFilt[bs.dataset.bsel] = bs.value; render(); } });
+app.addEventListener('change', (e) => { const cm = e.target.closest('[data-cmp]'); if (cm) { cmpWith = cm.value; store.set('compareWith', cmpWith); render(); requestAnimationFrame(() => document.getElementById('cmp')?.focus()); return; } const s = e.target.closest('[data-fsel]'); if (s) setFilt(s.dataset.fsel, s.value); const bs = e.target.closest('[data-bsel]'); if (bs) { bFilt[bs.dataset.bsel] = bs.value; render(); } });
 let lastPage = '';
 window.addEventListener('hashchange', () => { const p = location.hash.split('/')[1] || ''; render(); if (p !== lastPage || true) window.scrollTo(0, 0); lastPage = p; });
 document.addEventListener('keydown', (e) => {
