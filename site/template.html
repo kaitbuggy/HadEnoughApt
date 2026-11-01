@@ -524,6 +524,10 @@ document.addEventListener('click', (e) => {
     else LAY[g] = LAY[g].includes(v) ? LAY[g].filter((x) => x !== v) : [...LAY[g], v];
     store.set('layout', LAY); render(); return;
   }
+  const gt = e.target.closest('[data-gotab]');
+  if (gt) { reviewTab = gt.dataset.gotab; store.set('reviewTab', reviewTab); }
+  const sc = e.target.closest('[data-scroll]');
+  if (sc) { document.getElementById(sc.dataset.scroll)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
   const x = e.target.closest('[data-expand]');
   if (x) { const id = x.dataset.expand; expanded.has(id) ? expanded.delete(id) : expanded.add(id); render(); }
 });
@@ -773,37 +777,43 @@ function pagePlan(id) {
   const units = unitsOfPlan(id).sort((x, y) => !!unitOpen(y) - !!unitOpen(x) || (y.floor || 0) - (x.floor || 0));
   const floors = floorsOf(p.building_id);
   const soonest = a.units.map((u) => unitRent(u)?.on).filter(Boolean).sort()[0];
+  const pw = winP.get(p.id) || [], uw = units.flatMap((u) => winU.get(u.id) || []);
+  const leased = uw.filter((w) => w.closed_at);
+  const avgDays = leased.length ? Math.round(leased.reduce((n, w) => n + (new Date(w.closed_at) - new Date(w.opened_at)) / DAY, 0) / leased.length) : null;
+  const lowSeen = Math.min(...[...pw, ...uw].map((w) => w.min_rent_seen).filter(Boolean));
+  const watchingPlan = watching('plan', p.id);
   return `
-  <div class="crumbs"><a href="#/building/${b.id}">${esc(b.name)}</a> · ${esc(p.name)}</div>
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="#/buildings">Buildings</a> <span aria-hidden="true">›</span> <a href="#/building/${b.id}">${esc(b.name)}</a> <span aria-hidden="true">›</span> <span aria-current="page">${esc(p.name)}</span></nav>
   <div class="split">
-    <section aria-label="Floor plan">
+    <section aria-label="Floor plan" class="stack" style="gap:8px">
       ${(([h, c]) => `<div class="planimg ${c}">${h}</div>`)(planVisual(p))}
+      ${p.image_url ? `<a href="${esc(p.image_url)}" target="_blank" rel="noopener noreferrer" style="align-self:flex-end;font-size:14px">Open full size ↗</a>` : ''}
     </section>
     <section class="stack" style="gap:24px">
       <div style="display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end">
-        <div><h1 class="display">${esc(p.name)}</h1><p class="muted" style="margin:6px 0 0">${esc(join(bedLabel(p.beds), bathLabel(p.baths), sqftLabel(p.sqft_min, p.sqft_max)))}</p><div style="margin-top:6px">${layoutTags(p.id)}</div>${layoutOf(p.id).pending ? '<p class="small muted" style="margin:4px 0 0">Layout labeled from the plan image; not checked yet.</p>' : ''}</div>
+        <div><h1 class="display">${esc(p.name)}</h1><p class="muted" style="margin:6px 0 0">${esc(join(bedLabel(p.beds), bathLabel(p.baths), sqftLabel(p.sqft_min, p.sqft_max)))}</p><div style="margin-top:6px">${layoutTags(p.id)}</div>${layoutOf(p.id).pending ? '<p class="small muted" style="margin:4px 0 0">Layout labeled from the plan image; not checked yet. <a href="#/review" data-gotab="layouts">Check it →</a></p>' : ''}</div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">${siteLink(b) ? `<a class="btn" href="${esc(siteLink(b))}" target="_blank" rel="noopener">See ${esc(p.name)} on the building site ↗</a>` : ''}${watchBtn('plan', p.id, p.name)}</div>
       </div>
       <div class="stats three" style="margin:0">
-        <div><div class="stat">${a.count}</div><div class="small muted">available now</div></div>
+        <div>${a.count ? `<button type="button" class="statbtn" data-scroll="units"><div class="stat" style="color:var(--okFg)">${a.count}</div><div class="small muted">available now · see units</div></button>` : `<div class="stat">0</div><div class="small muted">available now</div>`}</div>
         <div><div class="stat">${money(a.from)}</div><div class="small muted">lowest rent listed</div></div>
         <div><div class="stat">${soonest ? (soonest <= todayISO ? 'Now' : fmtDay(soonest)) : '—'}</div><div class="small muted">soonest move-in</div></div>
       </div>
       <div class="stack" style="gap:10px">
-        <h2 style="font-size:24px">Units with this plan</h2>
+        <h2 id="units" style="font-size:24px">Units with this plan</h2>
         ${units.length ? `<div class="card tablecard"><table class="units">
-          <thead><tr><th scope="col">Unit</th><th scope="col">Floor</th><th scope="col">Faces</th><th scope="col">Sq ft</th><th scope="col">Status</th><th scope="col">Rent · move-in</th><th scope="col"><span class="sr">Watch</span></th></tr></thead>
+          <thead><tr><th scope="col">Unit</th><th scope="col">Floor</th><th scope="col">Faces</th><th scope="col">Sq ft</th><th scope="col">Status</th><th scope="col">Rent · move-in</th><th scope="col" style="text-align:center">Watch</th></tr></thead>
           <tbody>${units.map((u) => {
             const o = unitOpen(u), r = o ? unitRent(u) : null, key = 'u' + u.id, ex = expanded.has(key);
             const last = (winU.get(u.id) || []).filter((w) => w.closed_at).pop();
             return `<tr class="row">
               <td class="c-unit"><button type="button" class="unitbtn" data-expand="${key}" aria-expanded="${ex}" aria-label="${esc(unitName(u))} details"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2.5 7.5 6 4 9.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>${esc(u.unit_number || '—')}</button></td>
-              <td data-l="Floor" class="mono">${u.floor ?? '—'}${u.is_top_floor ? ' <span class="pill acc">Top</span>' : ''}</td>
-              <td data-l="Faces">${u.view_of ? esc(viewLabel(u.view_of) || u.view_of) : '<span class="muted">—</span>'}</td>
+              <td data-l="Floor" class="mono">${u.floor ?? '—'}${u.is_top_floor ? ' <span class="small muted" style="font-family:var(--sans,inherit)">top</span>' : ''}</td>
+              <td data-l="Faces">${u.view_of ? esc(viewLabel(u.view_of) || u.view_of) : `<span class="muted">—</span> <a class="small" href="#/review" data-gotab="facing">Help check</a>`}</td>
               <td data-l="Sq ft" class="mono">${u.sqft ?? '—'}</td>
               <td><span class="pill ${o ? 'ok' : 'off'}">${o ? 'Available' : last ? 'Leased ' + fmtDay(last.closed_at.slice(0, 10)) : 'Not listed'}</span></td>
               <td class="mono">${r ? money(r.rent) + (r.on ? ' · ' + (r.on <= todayISO ? 'now' : fmtDay(r.on)) : '') : '—'}</td>
-              <td class="c-watch"><button type="button" class="star" data-watch="unit:${u.id}" aria-pressed="${watching('unit', u.id)}" aria-label="Watch ${esc(unitName(u))}">${watching('unit', u.id) ? '★' : '☆'}</button></td>
+              <td class="c-watch"><button type="button" class="star" data-watch="unit:${u.id}" aria-pressed="${watching('unit', u.id)}" aria-label="Watch ${esc(unitName(u))}" title="${watching('unit', u.id) ? 'Watching: changes show on your Watchlist' : 'Watch: get alerts when this unit changes or comes back'}">${watching('unit', u.id) ? '★' : '☆'}</button></td>
             </tr>${ex ? `<tr class="detail"><td colspan="7"><div class="detailgrid">
               <div><div class="dlabel">Rent by lease length</div>${o ? barsFor(r?.all) : '<p class="muted small" style="margin:0">Not listed right now.</p>'}</div>
               <div><div class="dlabel">When it could come back</div><p style="margin:0">${comeBack(u)}</p></div>
@@ -813,6 +823,12 @@ function pagePlan(id) {
         : `<div class="note"><span class="muted">We haven't matched any unit numbers to this plan yet. They appear here as the building lists them.</span></div>`}
         <p class="small muted" style="margin:0">The list grows as units come online, so it may not show every unit in the building yet.</p>
       </div>
+      <section class="stack" style="gap:8px;border-top:1px solid var(--line);padding-top:20px" aria-labelledby="phist">
+        <h2 id="phist" style="font-size:24px">Plan history</h2>
+        ${leased.length ? `<p style="margin:0">${leased.length} ${leased.length === 1 ? 'unit has' : 'units have'} leased since ${esc(fmtDate(trackStart, { month: 'short', day: 'numeric', year: 'numeric' }))}, after ${avgDays} ${avgDays === 1 ? 'day' : 'days'} on the market on average.${isFinite(lowSeen) ? ' Lowest rent seen: ' + money(lowSeen) + '.' : ''}</p>`
+          : `<p class="muted" style="margin:0;max-width:62ch">Tracking started ${esc(fmtDate(trackStart, { month: 'short', day: 'numeric', year: 'numeric' }))}. Once ${esc(p.name)} units list and lease, you'll see how often this plan comes up, how fast it goes, and the lowest rent seen.</p>`}
+        <button type="button" class="btn sm ${watchingPlan ? 'watching' : ''}" data-watch="plan:${p.id}" aria-pressed="${watchingPlan}" style="align-self:flex-start">${watchingPlan ? '★ Watching this plan' : '☆ Watch this plan to build its history'}</button>
+      </section>
     </section>
   </div>`;
 }
