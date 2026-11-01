@@ -7,6 +7,10 @@ import json, pathlib, sys
 
 here = pathlib.Path(__file__).parent
 data = json.loads(pathlib.Path(sys.argv[1]).read_text())
+# Simplified floor plan drawings (labels/plan-drawings.json), keyed "Building|Plan".
+drawings = json.loads((here.parent / 'labels' / 'plan-drawings.json').read_text())
+data['drawings'] = drawings['drawings']
+data['planDrawings'] = {p['building'] + '|' + p['plan']: p['drawing'] for p in drawings['plans']}
 blob = json.dumps(data, separators=(',', ':')).replace('</', '<\\/')
 out = here.parent / 'site-public'
 out.mkdir(exist_ok=True)

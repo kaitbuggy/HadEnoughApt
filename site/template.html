@@ -10,12 +10,14 @@
 :root{
   --bg:#F6F4EE;--surface:#FCFBF8;--subtle:#EEEBE3;--ink:#1F1E1B;--muted:#66635B;--line:#E2DED4;--control:#858177;
   --accent:#9A472E;--accentSoft:#F4E4DB;--okBg:#E2EEE5;--okFg:#2D6646;--offBg:#ECE9E2;--offFg:#5C5952;
+  --bedFill:#DCE3EE;--bedLine:#465D7D;--bathFill:#D3E9E4;--bathLine:#2F6F64;--closetFill:#ECE2C8;--closetLine:#7A6431;--balconyFill:#E3EBD3;--balconyLine:#566C2C;
   --serif:Newsreader,Georgia,serif;--sans:Geist,system-ui,-apple-system,sans-serif;--mono:'Geist Mono',ui-monospace,monospace;
   color-scheme:light;
 }
 :root[data-theme="dark"]{
   --bg:#1B1A18;--surface:#24231F;--subtle:#2C2B27;--ink:#EEECE6;--muted:#A6A297;--line:#3A3832;--control:#7A766C;
   --accent:#E39575;--accentSoft:#3B2A22;--okBg:#1E3326;--okFg:#93D0AA;--offBg:#2F2E2A;--offFg:#B8B4AA;
+  --bedFill:#283342;--bedLine:#A3B9D8;--bathFill:#1E3833;--bathLine:#86C9BB;--closetFill:#3A3322;--closetLine:#D6BE86;--balconyFill:#2C3522;--balconyLine:#B7CC8E;
   color-scheme:dark;
 }
 *{box-sizing:border-box}
@@ -95,6 +97,14 @@ select{height:36px;padding:0 36px 0 14px;border-radius:999px;border:1px solid va
 .feed{display:flex;flex-direction:column;gap:12px}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:18px}
 .feeditem{display:grid;grid-template-columns:96px minmax(0,1fr) auto;gap:22px;align-items:center;padding:16px 20px}
+.plansvg{width:100%;height:100%;display:block}
+.drawn{background:var(--subtle)!important}
+.tile .img.drawn{padding:14px}
+.thumb.drawn{padding:6px}
+.planimg.drawn{padding:24px}
+.planimg.drawn .plansvg{max-height:520px;min-height:300px}
+.soon{position:absolute;left:10px;bottom:10px;font-size:12px;font-weight:500;padding:3px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line);color:var(--muted)}
+.viewtoggle{display:flex;gap:6px;margin-bottom:10px}
 .thumb{width:96px;height:72px;border-radius:10px;background:var(--subtle);display:grid;place-items:center;overflow:hidden}
 .thumb img{width:100%;height:100%;object-fit:contain;background:#fff}
 .thumb .ph{font-family:var(--mono);font-size:11px;color:var(--muted)}
@@ -105,7 +115,7 @@ select{height:36px;padding:0 36px 0 14px;border-radius:999px;border:1px solid va
 /* buildings + plans grid */
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
 .tile{display:flex;flex-direction:column;text-decoration:none;color:var(--ink);overflow:hidden}
-.tile .img{aspect-ratio:4/3;background:#fff;border-bottom:1px solid var(--line);display:grid;place-items:center;overflow:hidden}
+.tile .img{position:relative;aspect-ratio:4/3;background:#fff;border-bottom:1px solid var(--line);display:grid;place-items:center;overflow:hidden}
 :root[data-theme="dark"] .tile .img{background:#EDEAE3}
 .tile .img img{width:100%;height:100%;object-fit:contain;padding:10px}
 .tile .img .ph{font-family:var(--mono);font-size:12px;color:#66635B}
@@ -115,7 +125,7 @@ select{height:36px;padding:0 36px 0 14px;border-radius:999px;border:1px solid va
 
 /* plan page */
 .split{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:40px;align-items:start}
-.planimg{background:#fff;border:1px solid var(--line);border-radius:20px;padding:20px;display:grid;place-items:center;min-height:320px}
+.planimg{position:relative;background:#fff;border:1px solid var(--line);border-radius:20px;padding:20px;display:grid;place-items:center;min-height:320px}
 :root[data-theme="dark"] .planimg{background:#EDEAE3}
 .planimg img{max-width:100%;max-height:520px;object-fit:contain}
 .planimg .ph{font-family:var(--mono);font-size:13px;color:#66635B}
@@ -464,10 +474,42 @@ document.addEventListener('click', (e) => {
 const expanded = new Set();
 
 // ---------- pieces ----------
-function planImg(p, cls = 'thumb') {
-  return p?.image_url
+// Renders a floor plan drawing (see labels/plan-drawings.json) as an SVG string.
+// Colors come from CSS variables so light and dark mode both work.
+function planDrawingSVG(d, label) {
+  const rect = (r) => r.p ? 'M' + r.p.map((q) => q.join(' ')).join('L') + 'Z' : 'M' + r[0] + ' ' + r[1] + 'H' + r[2] + 'V' + r[3] + 'H' + r[0] + 'Z';
+  const paths = (list) => (list || []).map(rect).join('');
+  const tub = (r) => { const x = r[0], y = r[1], w = r[2] - r[0], h = r[3] - r[1], k = Math.min(w, h) / 2.4;
+    return `M${x + k} ${y}H${x + w - k}A${k} ${k} 0 0 1 ${x + w} ${y + k}V${y + h - k}A${k} ${k} 0 0 1 ${x + w - k} ${y + h}H${x + k}A${k} ${k} 0 0 1 ${x} ${y + h - k}V${y + k}A${k} ${k} 0 0 1 ${x + k} ${y}Z`; };
+  const shower = (r) => rect(r) + `M${r[0]} ${r[1]}L${r[2]} ${r[3]}M${r[2]} ${r[1]}L${r[0]} ${r[3]}`;
+  const pts = [...d.outline, ...(d.balcony || []).flatMap((r) => [[r[0], r[1]], [r[2], r[3]]])];
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  const minX = Math.min(...xs), minY = Math.min(...ys), w = Math.max(...xs) - minX, h = Math.max(...ys) - minY, pad = Math.max(w, h) * 0.03;
+  const vb = [minX - pad, minY - pad, w + 2 * pad, h + 2 * pad].map((n) => +n.toFixed(1)).join(' ');
+  const ve = 'vector-effect="non-scaling-stroke"';
+  return `<svg viewBox="${vb}" preserveAspectRatio="xMidYMid meet" fill="none" role="img" aria-label="${label || 'Floor plan'}" class="plansvg">`
+    + `<path ${ve} d="${paths(d.balcony)}" fill="var(--balconyFill)" stroke="var(--balconyLine)" stroke-width="1.2" stroke-dasharray="3 2"/>`
+    + `<path ${ve} d="${paths(d.bed)}" fill="var(--bedFill)" stroke="var(--bedLine)" stroke-width="1.2"/>`
+    + `<path ${ve} d="${paths(d.bath)}" fill="var(--bathFill)" stroke="var(--bathLine)" stroke-width="1.2"/>`
+    + `<path ${ve} d="${paths(d.closet)}" fill="var(--closetFill)" stroke="var(--closetLine)" stroke-width="1.2"/>`
+    + `<path ${ve} d="M${d.outline.map((p) => p.join(' ')).join('L')}Z" stroke="var(--ink)" stroke-width="2.2" stroke-linejoin="round"/>`
+    + (d.walls ? `<path ${ve} d="${d.walls}" stroke="var(--muted)" stroke-width="1.4" stroke-linecap="round"/>` : '')
+    + `<path ${ve} d="${paths(d.kitchen)}" fill="var(--accentSoft)" stroke="var(--accent)" stroke-width="1.4" stroke-linejoin="round"/>`
+    + `<path ${ve} d="${(d.tubs || []).map(tub).join('')}" fill="var(--surface)" stroke="var(--bathLine)" stroke-width="1.3"/>`
+    + `<path ${ve} d="${(d.showers || []).map(shower).join('')}" stroke="var(--bathLine)" stroke-width="1.3" stroke-linejoin="round"/>`
+    + `</svg>`;
+}
+const DRAW = DATA.drawings || {};
+const drawingFor = (p) => { const k = DATA.planDrawings?.[B.get(p.building_id)?.name + '|' + p.name]; return k ? DRAW[k] : null; };
+const originalImg = (p) => p?.image_url
     ? `<img src="${esc(p.image_url)}" alt="${esc(p.name)} floor plan" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph',textContent:'Plan image unavailable'}))">`
     : `<span class="ph">No plan image</span>`;
+// Returns [innerHTML, extra class for the frame]. Drawn plans use the illustration;
+// plans not drawn yet show the building's image with a "Drawing coming soon" tag.
+function planVisual(p, { original = false, tag = true } = {}) {
+  const d = p && drawingFor(p);
+  if (d && !original) return [planDrawingSVG(d, esc(p.name) + ' floor plan, simplified drawing'), 'drawn'];
+  return [originalImg(p) + (!d && tag && p?.image_url ? '<span class="soon">Drawing coming soon</span>' : ''), ''];
 }
 function barsFor(all) {
   if (!all || !all.length) return '<p class="muted small" style="margin:0">Only one price is listed.</p>';
@@ -558,7 +600,7 @@ function pageHome() {
     <div class="feed">${shown.map(({ u, w, r, p }) => {
       const b = B.get(u.building_id);
       return `<article class="card feeditem">
-        <div class="thumb">${planImg(p)}</div>
+        ${(([h, c]) => `<div class="thumb ${c}">${h}</div>`)(planVisual(p, { tag: false }))}
         <div class="stack" style="gap:2px;min-width:0">
           <div class="small muted">${esc(listedLabel(w.opened_at))}${u.is_top_floor ? ' · <span class="pill acc">Top floor</span>' : ''}</div>
           <a class="ftitle" href="#/unit/${u.id}">${esc(unitName(u))} · ${esc(p?.name || 'Floor plan')}</a>
@@ -576,6 +618,7 @@ function pageHome() {
 }
 let feedLimit = 20;
 let moreOpen = false;
+let planView = 'drawing';
 function searchBtn() {
   const on = !!W.search[searchKey(LAY)];
   return `<button type="button" class="btn ${on ? 'watching' : ''}" data-wsearch="1" aria-pressed="${on}">${on ? '★ Watching this search' : '☆ Watch this search'}</button>`;
@@ -621,7 +664,7 @@ function pageBuilding(id) {
   const anyFilter = layActive() || bFilt.beds !== 'any' || bFilt.avail;
   const chip = (k, v, label) => `<button type="button" class="chip" aria-pressed="${bFilt[k] === v}" data-bf="${k}:${v}">${esc(label)}</button>`;
   const tile = ({ p, a }) => `<a class="card tile" href="#/plan/${p.id}">
-      <div class="img">${planImg(p)}</div>
+      ${(([h, c]) => `<div class="img ${c}">${h}</div>`)(planVisual(p))}
       <div class="body">
         <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><span class="name">${esc(p.name)}</span><span class="pill ${a.count ? 'ok' : 'off'}">${a.count ? a.count + ' available' : 'Not listed'}</span></div>
         <span class="small muted">${esc(join(bedLabel(p.beds), bathLabel(p.baths), sqftLabel(p.sqft_min, p.sqft_max)))}</span>
@@ -673,7 +716,11 @@ function pagePlan(id) {
   return `
   <div class="crumbs"><a href="#/building/${b.id}">${esc(b.name)}</a> · ${esc(p.name)}</div>
   <div class="split">
-    <section class="planimg" aria-label="Floor plan">${planImg(p)}</section>
+    <section aria-label="Floor plan">
+      ${drawingFor(p) ? `<div class="viewtoggle" role="group" aria-label="Plan view"><button type="button" class="chip" aria-pressed="${planView === 'drawing'}" data-pv="drawing">Drawing</button><button type="button" class="chip" aria-pressed="${planView === 'original'}" data-pv="original">Original plan</button></div>` : ''}
+      ${(([h, c]) => `<div class="planimg ${c}">${h}</div>`)(planVisual(p, { original: planView === 'original' }))}
+      ${drawingFor(p) ? `<p class="small muted" style="margin:8px 0 0">${planView === 'original' ? "The building's own plan image." : "Simplified drawing traced from the building's plan, not checked yet. Switch to Original plan for every detail."}</p>` : ''}
+    </section>
     <section class="stack" style="gap:24px">
       <div style="display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end">
         <div><h1 class="display">${esc(p.name)}</h1><p class="muted" style="margin:6px 0 0">${esc(join(bedLabel(p.beds), bathLabel(p.baths), sqftLabel(p.sqft_min, p.sqft_max)))}</p><div style="margin-top:6px">${layoutTags(p.id)}</div>${layoutOf(p.id).pending ? '<p class="small muted" style="margin:4px 0 0">Layout labeled from the plan image; not checked yet.</p>' : ''}</div>
@@ -735,7 +782,7 @@ function pageUnit(id) {
       <div><h2 id="leaseh" style="font-size:28px">Rent by lease length</h2>
       <p class="muted" style="margin:4px 0 0">${o && r ? `Checked ${esc(fmtDate(LU.get(u.id)?.observed_at, { month: 'short', day: 'numeric' }))}. Lowest is <strong style="color:var(--ink)">${money(r.rent)}${r.months ? ' on a ' + r.months + '-month lease' : ''}</strong>.` : 'Not listed right now, so there are no current prices.'}</p></div>
       ${o ? barsFor(r?.all) : ''}
-      ${p ? `<div class="planimg" style="min-height:220px;margin-top:8px">${planImg(p)}</div>` : ''}
+      ${p ? (([h, c]) => `<div class="planimg ${c}" style="min-height:220px;margin-top:8px">${h}</div>`)(planVisual(p)) : ''}
     </section>
     <aside class="stack" style="gap:20px">
       <section class="soft" aria-labelledby="nexth"><h2 id="nexth" style="font-size:24px">When it could come back</h2><p style="margin:0">${comeBack(u)}</p><p class="small muted" style="margin:0">The estimate sharpens as this unit's history builds.</p></section>
@@ -834,6 +881,8 @@ app.addEventListener('click', (e) => {
   if (f) { const [k, v] = f.dataset.f.split(':'); if (k === 'reset' || k === 'resetall') { Object.assign(filt, { b: 'all', beds: 'any', max: 'any' }); if (k === 'resetall') { LAY.k = []; LAY.b = []; store.set('layout', LAY); } store.set('filters', filt); render(); } else setFilt(k, v); return; }
   const bf = e.target.closest('[data-bf]');
   if (bf) { const [k, v] = bf.dataset.bf.split(':'); if (k === 'reset') { bFilt.beds = 'any'; bFilt.avail = false; } else if (k === 'avail') bFilt.avail = !bFilt.avail; else bFilt[k] = v; render(); return; }
+  const pv = e.target.closest('[data-pv]');
+  if (pv) { planView = pv.dataset.pv; render(); return; }
   if (e.target.closest('#morebtn')) { moreOpen = !moreOpen; render(); return; }
   if (e.target.id === 'more') { feedLimit += 20; render(); return; }
   if (e.target.id === 'markall') { store.set('seen', Date.now()); render(); }
