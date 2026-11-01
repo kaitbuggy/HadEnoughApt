@@ -44,6 +44,16 @@ const QUERIES = {
     select floor_plan_id, attribute_key, value, status, confidence
     from current_labels where floor_plan_id is not null
     order by floor_plan_id, attribute_key`,
+  // Every layout review answer and the model's first guess, so the site can show
+  // how often the model matches the reviewer (and auto-approve once it's reliable).
+  reviews: `
+    select floor_plan_id, attribute_key, value, status, created_at
+    from labels where source = 'user' and floor_plan_id is not null
+    order by created_at`,
+  modelGuesses: `
+    select distinct on (floor_plan_id, attribute_key) floor_plan_id, attribute_key, value, confidence
+    from labels where source = 'model' and floor_plan_id is not null
+    order by floor_plan_id, attribute_key, created_at`,
   lastRuns: `
     select distinct on (building_id) building_id, status, started_at, finished_at, items_found
     from scrape_runs order by building_id, started_at desc`,

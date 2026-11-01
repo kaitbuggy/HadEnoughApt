@@ -83,6 +83,11 @@ jobs:
           fi
       - name: Build the website
         working-directory: .
+        env:
+          # Public by design (row-level security limits what they can do). Set as
+          # repository variables, not secrets: Settings → Secrets and variables → Actions → Variables.
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
         run: python3 site/build.py scraper/out/site-data.json
       - name: Package the website
         if: github.ref == 'refs/heads/main'
