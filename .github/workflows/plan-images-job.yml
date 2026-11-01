@@ -1,0 +1,31 @@
+name: Plan images (temporary)
+on:
+  push:
+    branches: [plan-images-job]
+permissions:
+  contents: write
+jobs:
+  get:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: |
+          git fetch -q origin site-data
+          git show origin/site-data:site-data.json > /tmp/sd.json
+          mkdir out
+          python3 - <<'PY'
+          import json, urllib.request, os
+          d = json.load(open('/tmp/sd.json'))
+          for p in d['floorPlans']:
+              u = p.get('image_url')
+              if not u: print('none', p['id'], p['name']); continue
+              ext = u.split('?')[0].rsplit('.', 1)[-1][:4]
+              try:
+                  req = urllib.request.Request(u, headers={'User-Agent': 'Mozilla/5.0'})
+                  open(f"out/{p['id']}.{ext}", 'wb').write(urllib.request.urlopen(req, timeout=60).read())
+              except Exception as e:
+                  print('FAIL', p['id'], p['name'], e)
+          PY
+          ls out | wc -l
+          cd out && git init -q -b plan-images-out && git config user.name bot && git config user.email bot@x && git add . && git commit -qm imgs
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:refs/heads/plan-images-out
