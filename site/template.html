@@ -199,6 +199,10 @@ tbody tr:last-child td{border-bottom:0}
   .side fieldset.facetset{display:grid;grid-template-columns:1fr 1fr}
   .side fieldset.facetset legend{grid-column:1/-1}
 }
+.reviewgrid{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:28px;align-items:start}
+.reviewimgs{display:grid;grid-template-columns:1fr;gap:12px}
+.reviewimgs.two{grid-template-columns:1fr 1fr}
+@media (max-width:860px){.reviewgrid,.reviewimgs.two{grid-template-columns:1fr}}
 footer{border-top:1px solid var(--line);padding:24px 0 40px;color:var(--muted);font-size:13px}
 
 @media (max-width:860px){
@@ -254,6 +258,7 @@ footer{border-top:1px solid var(--line);padding:24px 0 40px;color:var(--muted);f
       <div id="qres" class="results" role="listbox" hidden></div>
     </div>
     <nav class="util" aria-label="Account">
+      <a class="navlink" href="#/review" data-nav="review" style="color:var(--muted);font-weight:400">Review</a>
       <a class="navlink" href="#/watchlist" data-nav="watchlist">Watchlist <span class="badge" id="wcount">0</span><span class="newflag" id="wnew"></span></a>
       <button class="iconbtn" id="theme" type="button" aria-label="Switch to dark mode"></button>
     </nav>
@@ -834,6 +839,129 @@ function pageWatchlist() {
   </div>`;
 }
 
+// ---------- layout review (open to everyone; answers are added, never edited) ----------
+const ATTRS = [['kitchen_shape', 'Kitchen shape'], ['kitchen_island', 'Kitchen island'], ['walk_in_shower', 'Walk-in shower'], ['has_tub', 'Tub']];
+const TRUST_STREAK = 30, TRUST_MIN_CONF = 0.8;
+const localReviews = () => store.get('reviews', []);
+const allReviews = () => {
+  const seen = new Set((DATA.reviews || []).map((r) => r.floor_plan_id + '|' + r.attribute_key + '|' + r.created_at));
+  return [...(DATA.reviews || []), ...localReviews().filter((r) => !seen.has(r.floor_plan_id + '|' + r.attribute_key + '|' + r.created_at))]
+    .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+};
+// The model's guess for a plan: its first label (exported), else the current pending label.
+const GUESS = new Map();
+for (const g of DATA.modelGuesses || []) GUESS.set(g.floor_plan_id + '|' + g.attribute_key, g);
+for (const l of DATA.labels || []) { const k = l.floor_plan_id + '|' + l.attribute_key; if (!GUESS.has(k) && l.status === 'pending') GUESS.set(k, l); }
+const guessOf = (pid, attr) => GUESS.get(pid + '|' + attr);
+const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+function trustStats() {
+  const out = {};
+  for (const [attr] of ATTRS) {
+    const rows = allReviews().filter((r) => r.attribute_key === attr && guessOf(r.floor_plan_id, attr));
+    const hits = rows.map((r) => same(r.value, guessOf(r.floor_plan_id, attr).value));
+    let streak = 0; for (let i = hits.length - 1; i >= 0 && hits[i]; i--) streak++;
+    out[attr] = { n: hits.length, ok: hits.filter(Boolean).length, streak, trusted: streak >= TRUST_STREAK };
+  }
+  return out;
+}
+function reviewedSet() { const s = new Set(); for (const r of allReviews()) s.add(r.floor_plan_id + '|' + r.attribute_key); return s; }
+// Apply review answers to the labels the rest of the site uses (filters, tags, "not checked yet").
+function applyReviews() {
+  const trust = trustStats();
+  for (const r of allReviews()) {
+    const o = LBL.get(r.floor_plan_id) || {};
+    o[r.attribute_key] = r.value; o.reviewed = true; LBL.set(r.floor_plan_id, o);
+  }
+  for (const [pid, o] of LBL) {
+    const done = ATTRS.every(([a]) => o.reviewed && reviewedSet().has(pid + '|' + a) || (trust[a].trusted && (guessOf(pid, a)?.confidence ?? 0) >= TRUST_MIN_CONF));
+    if (done) o.pending = false;
+  }
+}
+// Review one drawing at a time: plans that share a layout get the same answers.
+function reviewQueue() {
+  const trust = trustStats(), done = reviewedSet(), groups = new Map();
+  for (const p of DATA.floorPlans) {
+    const key = DATA.planDrawings?.[B.get(p.building_id)?.name + '|' + p.name] || 'plan' + p.id;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(p);
+  }
+  const q = [];
+  for (const [key, plans] of groups) {
+    const lead = plans[0];
+    const open = ATTRS.filter(([a]) => !plans.every((p) => done.has(p.id + '|' + a)) && !(trust[a].trusted && (guessOf(lead.id, a)?.confidence ?? 0) >= TRUST_MIN_CONF));
+    if (!open.length || !LBL.get(lead.id)) continue;
+    const conf = Math.min(...open.map(([a]) => guessOf(lead.id, a)?.confidence ?? 0));
+    q.push({ key, plans, lead, conf });
+  }
+  return q.sort((a, b) => a.conf - b.conf || a.lead.name.localeCompare(b.lead.name));
+}
+let reviewSkip = new Set(), reviewAns = {}, reviewView = 'both', reviewMsg = '';
+const KSHAPES = [['u_shape', 'U-shape'], ['l_shape', 'L-shape'], ['galley', 'Galley'], ['single_wall', 'One wall']];
+function pageReview() {
+  const q = reviewQueue().filter((g) => !reviewSkip.has(g.key));
+  const total = new Set(DATA.floorPlans.map((p) => DATA.planDrawings?.[B.get(p.building_id)?.name + '|' + p.name] || 'plan' + p.id)).size;
+  const left = reviewQueue().length, doneCount = total - left;
+  const trust = trustStats();
+  const trustCards = ATTRS.map(([a, label]) => { const s = trust[a];
+    return `<div class="card" style="padding:16px;display:flex;flex-direction:column;gap:8px"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><strong style="font-weight:500">${label}</strong><span class="pill ${s.trusted ? 'ok' : 'off'}">${s.trusted ? 'Auto-approving' : Math.min(s.streak, TRUST_STREAK) + ' / ' + TRUST_STREAK + ' in a row'}</span></div><div class="track" style="height:6px"><div class="fill best" style="width:${Math.min(100, s.streak / TRUST_STREAK * 100).toFixed(0)}%"></div></div><span class="small muted">${s.n ? 'Matched you ' + s.ok + ' of ' + s.n + ' times' : 'No reviews yet'}</span></div>`; }).join('');
+  const head = `<div style="display:flex;flex-wrap:wrap;gap:12px 24px;justify-content:space-between;align-items:flex-end;margin-bottom:24px">
+    <div><h1 class="display" style="font-size:44px">Review layouts</h1><p class="muted" style="margin:6px 0 0">Least-confident layouts first. Fix anything Claude got wrong, or confirm it with one click. Plans that share a layout are answered together.</p></div>
+    <div style="min-width:280px;display:flex;flex-direction:column;gap:6px"><div style="display:flex;justify-content:space-between" class="small"><span><strong>${doneCount}</strong> <span class="muted">of ${total} layouts checked</span></span><span class="muted">${left} left</span></div><div class="track" style="height:8px"><div class="fill" style="width:${(doneCount / total * 100).toFixed(1)}%;background:var(--okFg)"></div></div></div>
+  </div>`;
+  const trustSec = `<section style="margin-top:32px;padding-top:24px;border-top:1px solid var(--line)" aria-labelledby="trusth">
+    <div style="margin-bottom:16px"><h2 id="trusth" style="font-size:24px">When can you stop?</h2><p class="small muted" style="margin:6px 0 0;max-width:72ch">Every answer is scored against Claude's guess. After ${TRUST_STREAK} matches in a row on one question, new guesses of that kind that Claude is at least ${TRUST_MIN_CONF * 100}% sure of are approved automatically. Unsure ones still come here, and one miss resets the streak.</p></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px">${trustCards}</div></section>`;
+  if (!q.length) return head + `<div class="emptybox"><strong>${left ? "You've skipped the rest for now." : 'Every layout is checked. Nice work.'}</strong><span class="muted">${left ? 'Reload the page to see skipped layouts again.' : 'New plans show up here when a building adds them.'}</span></div>` + trustSec;
+  const g = q[0], p = g.lead, b = B.get(p.building_id), d = drawingFor(p);
+  const cur = {}; for (const [a] of ATTRS) { const gs = guessOf(p.id, a); cur[a] = a in reviewAns ? reviewAns[a] : gs ? gs.value : null; }
+  const changed = ATTRS.some(([a]) => a in reviewAns && !same(reviewAns[a], guessOf(p.id, a)?.value));
+  const opts = (a) => a === 'kitchen_shape' ? [...KSHAPES, [null, 'Not sure']] : [[true, 'Yes'], [false, 'No'], [null, 'Not sure']];
+  const fmt = (a, v) => v == null ? 'not sure' : a === 'kitchen_shape' ? (KSHAPES.find((x) => x[0] === v) || [, v])[1] : v ? 'yes' : 'no';
+  const qs = ATTRS.map(([a, label]) => { const gs = guessOf(p.id, a), conf = gs?.confidence;
+    return `<fieldset style="border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:8px"><legend style="padding:0;margin:0 0 8px;display:flex;justify-content:space-between;width:100%;gap:8px"><span class="flabel">${label}</span><span class="small" style="color:${conf != null && conf < 0.7 ? 'var(--accent)' : 'var(--muted)'}">Claude: ${esc(fmt(a, gs?.value))}${conf != null ? ' · ' + Math.round(conf * 100) + '% sure' : ''}</span></legend><div class="chips">${opts(a).map(([v, l]) => `<button type="button" class="chip" aria-pressed="${same(cur[a], v)}" data-rv="${a}:${JSON.stringify(v)}">${l}</button>`).join('')}</div></fieldset>`; }).join('');
+  const note = (DATA.labels || []).find((l) => l.floor_plan_id === p.id && l.evidence)?.evidence;
+  const names = g.plans.map((x) => x.name).join(' · ');
+  return head + `<div class="reviewgrid">
+    <section aria-label="Plan to review" class="stack" style="gap:12px;min-width:0">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap"><h2 style="font-size:30px">${esc(names)} <span class="muted" style="font-size:16px">· ${esc(b.name)}</span></h2>
+        <div class="chips" role="group" aria-label="Compare">${d ? `<button type="button" class="chip" aria-pressed="${reviewView === 'both'}" data-rview="both">Side by side</button><button type="button" class="chip" aria-pressed="${reviewView === 'original'}" data-rview="original">Original only</button>` : ''}</div></div>
+      <div class="reviewimgs ${reviewView === 'both' && d ? 'two' : ''}">
+        <div class="planimg" style="min-height:420px">${originalImg(p)}</div>
+        ${reviewView === 'both' && d ? `<div class="planimg drawn" style="min-height:420px">${planDrawingSVG(d, esc(p.name) + ', Claude’s drawing')}</div>` : ''}
+      </div>
+      ${note ? `<p class="small muted" style="margin:0"><strong style="color:var(--ink);font-weight:500">Claude's note:</strong> ${esc(note)}</p>` : ''}
+    </section>
+    <aside class="card" aria-label="Answers" style="padding:22px;display:flex;flex-direction:column;gap:18px">
+      ${qs}
+      <div style="display:flex;flex-direction:column;gap:8px;padding-top:16px;border-top:1px solid var(--line)">
+        <button type="button" class="btn primary" id="rsave">${changed ? 'Save corrections' : 'Looks right'}</button>
+        <button type="button" class="btn sm" id="rskip">Skip for now</button>
+        <p class="small muted" style="margin:2px 0 0;text-align:center" aria-live="polite">${esc(reviewMsg) || 'Keys: 1–4 kitchen shape · Enter save · S skip'}</p>
+      </div>
+    </aside>
+  </div>` + trustSec;
+}
+async function saveReview() {
+  const g = reviewQueue().filter((x) => !reviewSkip.has(x.key))[0]; if (!g) return;
+  const now = new Date().toISOString(), rows = [];
+  for (const p of g.plans) for (const [a] of ATTRS) {
+    const guess = guessOf(g.lead.id, a)?.value ?? null;
+    const value = a in reviewAns ? reviewAns[a] : guess;
+    rows.push({ floor_plan_id: p.id, attribute_key: a, value, source: 'user', status: same(value, guess) ? 'accepted' : 'corrected' });
+  }
+  const cfg = DATA.config || {};
+  let saved = false;
+  if (cfg.supabaseUrl && cfg.supabaseKey) {
+    try {
+      const res = await fetch(cfg.supabaseUrl.replace(/\/$/, '') + '/rest/v1/labels', { method: 'POST', headers: { apikey: cfg.supabaseKey, Authorization: 'Bearer ' + cfg.supabaseKey, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify(rows) });
+      saved = res.ok;
+      reviewMsg = saved ? 'Saved. ' + g.lead.name + ' is checked.' : "Couldn't save (" + res.status + '). Your answers are kept in this browser.';
+    } catch { reviewMsg = "Couldn't reach the database. Your answers are kept in this browser."; }
+  } else reviewMsg = "Saving to the database isn't set up yet, so answers are kept in this browser.";
+  store.set('reviews', [...localReviews(), ...rows.map((r) => ({ floor_plan_id: r.floor_plan_id, attribute_key: r.attribute_key, value: r.value, created_at: now, saved }))]);
+  reviewAns = {}; applyReviews(); render();
+}
+
 function notFound() {
   return `<div class="emptybox" style="margin-top:40px"><strong>We couldn't find that page.</strong><span class="muted">It may have been removed from the building's site.</span><a class="btn primary" href="#/">Go to Just listed</a></div>`;
 }
@@ -871,7 +999,7 @@ function render() {
   const nav = !page ? 'home' : ['buildings', 'building', 'plan', 'unit'].includes(page) ? 'buildings' : page;
   document.querySelector(`[data-nav="${nav}"]`)?.setAttribute('aria-current', page === 'buildings' || !page || page === 'watchlist' ? 'page' : 'location');
   const n = Number(id);
-  app.innerHTML = !page ? pageHome() : page === 'buildings' ? pageBuildings() : page === 'building' ? pageBuilding(n) : page === 'plan' ? pagePlan(n) : page === 'unit' ? pageUnit(n) : page === 'watchlist' ? pageWatchlist() : notFound();
+  app.innerHTML = !page ? pageHome() : page === 'buildings' ? pageBuildings() : page === 'building' ? pageBuilding(n) : page === 'plan' ? pagePlan(n) : page === 'unit' ? pageUnit(n) : page === 'watchlist' ? pageWatchlist() : page === 'review' ? pageReview() : notFound();
   const t = app.querySelector('h1')?.textContent;
   document.title = t && page ? t + ' · Had Enough' : 'Had Enough';
   updateHeader();
@@ -881,6 +1009,12 @@ app.addEventListener('click', (e) => {
   if (f) { const [k, v] = f.dataset.f.split(':'); if (k === 'reset' || k === 'resetall') { Object.assign(filt, { b: 'all', beds: 'any', max: 'any' }); if (k === 'resetall') { LAY.k = []; LAY.b = []; store.set('layout', LAY); } store.set('filters', filt); render(); } else setFilt(k, v); return; }
   const bf = e.target.closest('[data-bf]');
   if (bf) { const [k, v] = bf.dataset.bf.split(':'); if (k === 'reset') { bFilt.beds = 'any'; bFilt.avail = false; } else if (k === 'avail') bFilt.avail = !bFilt.avail; else bFilt[k] = v; render(); return; }
+  const rv = e.target.closest('[data-rv]');
+  if (rv) { const i = rv.dataset.rv.indexOf(':'); reviewAns[rv.dataset.rv.slice(0, i)] = JSON.parse(rv.dataset.rv.slice(i + 1)); reviewMsg = ''; render(); return; }
+  const rvw = e.target.closest('[data-rview]');
+  if (rvw) { reviewView = rvw.dataset.rview; render(); return; }
+  if (e.target.closest('#rsave')) { saveReview(); return; }
+  if (e.target.closest('#rskip')) { const g = reviewQueue().filter((x) => !reviewSkip.has(x.key))[0]; if (g) reviewSkip.add(g.key); reviewAns = {}; reviewMsg = ''; render(); window.scrollTo(0, 0); return; }
   const pv = e.target.closest('[data-pv]');
   if (pv) { planView = pv.dataset.pv; render(); return; }
   if (e.target.closest('#morebtn')) { moreOpen = !moreOpen; render(); return; }
@@ -890,7 +1024,14 @@ app.addEventListener('click', (e) => {
 app.addEventListener('change', (e) => { const s = e.target.closest('[data-fsel]'); if (s) setFilt(s.dataset.fsel, s.value); });
 let lastPage = '';
 window.addEventListener('hashchange', () => { const p = location.hash.split('/')[1] || ''; render(); if (p !== lastPage || true) window.scrollTo(0, 0); lastPage = p; });
+document.addEventListener('keydown', (e) => {
+  if ((location.hash.split('/')[1] || '') !== 'review' || e.target.closest('input,select,textarea') || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key >= '1' && e.key <= '4') { reviewAns.kitchen_shape = KSHAPES[Number(e.key) - 1][0]; render(); }
+  else if (e.key === 'Enter' && !e.target.closest('button,a')) { e.preventDefault(); saveReview(); }
+  else if (e.key === 's' || e.key === 'S') document.getElementById('rskip')?.click();
+});
 document.getElementById('foot').innerHTML = `Data checked ${esc(fmtDate(lastChecked))} at ${fmtTime(lastChecked)} Austin time. Prices and availability come from each building's own site and can change; confirm with the building before you apply.`;
+applyReviews();
 render();
 })();
 </script>
