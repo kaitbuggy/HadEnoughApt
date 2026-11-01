@@ -638,7 +638,7 @@ function pageHome() {
         const b = B.get(id), items = shown.filter((x) => x.u.building_id === id);
         const openHere = avail.filter((u) => u.building_id === id);
         const newHere = openHere.filter((u) => !atStart(unitOpen(u).opened_at) && now - new Date(unitOpen(u).opened_at) < DAY).length;
-        return `<section class="bgroup" aria-labelledby="bg${id}"><div class="bhead">${bMark(b, true)}<h3 id="bg${id}">${esc(b?.name || '')}</h3><span class="small muted">${esc(join(newHere ? newHere + ' new today' : null, openHere.length + ' available'))}</span><a href="#/building/${id}">Building page</a></div><div class="feed">${items.map((x) => card(x, false)).join('')}</div></section>`;
+        return `<section class="bgroup" aria-labelledby="bg${id}"><div class="bhead">${bMark(b, true)}<h3 id="bg${id}"><a href="#/building/${id}" style="text-decoration:none">${esc(b?.name || '')}</a></h3><span class="small muted">${esc(join(newHere ? newHere + ' new today' : null, openHere.length + ' available'))}</span><a href="#/building/${id}">${(() => { const n = DATA.floorPlans.filter((p) => p.building_id === id).length; return n ? `All ${n} floor plans` : 'Building details'; })()} →</a></div><div class="feed">${items.map((x) => card(x, false)).join('')}</div></section>`;
       }).join('');
     })()}
     ${list.length > shown.length ? `<button type="button" class="btn" id="more" style="align-self:center">Show ${Math.min(20, list.length - shown.length)} more</button>` : ''}
