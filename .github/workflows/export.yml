@@ -16,6 +16,7 @@ on:
       - 'scraper/src/export.js'
       - 'scraper/src/apply-labels.js'
       - 'labels/**'
+      - 'tools/area_data.py'
       - '.github/workflows/export.yml'
 
 permissions:
@@ -71,7 +72,12 @@ jobs:
           # repository variables, not secrets: Settings → Secrets and variables → Actions → Variables.
           SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
-        run: python3 site/build.py scraper/out/site-data.json
+        run: |
+          # Noise and walking data, if the "Area data" workflow has run.
+          if git fetch -q origin area-data 2>/dev/null; then
+            git show origin/area-data:area.json > "$RUNNER_TEMP/area.json" && export AREA_DATA="$RUNNER_TEMP/area.json"
+          fi
+          python3 site/build.py scraper/out/site-data.json
       - name: Package the website
         if: github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v3

@@ -7,6 +7,9 @@ import json, os, pathlib, re, sys
 
 here = pathlib.Path(__file__).parent
 data = json.loads(pathlib.Path(sys.argv[1]).read_text())
+# Noise and walking data per building (tools/area_data.py, from the area-data branch).
+area_path = os.environ.get('AREA_DATA', '')
+data['area'] = json.loads(pathlib.Path(area_path).read_text()) if area_path and pathlib.Path(area_path).exists() else None
 data['config'] = {'supabaseUrl': re.sub(r'(/rest/v1)?/*$', '', os.environ.get('SUPABASE_URL', '').strip()), 'supabaseKey': os.environ.get('SUPABASE_ANON_KEY', '')}
 blob = json.dumps(data, separators=(',', ':')).replace('</', '<\\/')
 out = here.parent / 'site-public'
