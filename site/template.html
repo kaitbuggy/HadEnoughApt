@@ -98,13 +98,6 @@ select{height:36px;padding:0 36px 0 14px;border-radius:999px;border:1px solid va
 .card{background:var(--surface);border:1px solid var(--line);border-radius:18px}
 .feeditem{display:grid;grid-template-columns:96px minmax(0,1fr) auto;gap:22px;align-items:center;padding:16px 20px}
 .plansvg{width:100%;height:100%;display:block}
-.drawn{background:var(--subtle)!important}
-.tile .img.drawn{padding:14px}
-.thumb.drawn{padding:6px}
-.planimg.drawn{padding:24px}
-.planimg.drawn .plansvg{max-height:520px;min-height:300px}
-.soon{position:absolute;left:10px;bottom:10px;font-size:12px;font-weight:500;padding:3px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line);color:var(--muted)}
-.viewtoggle{display:flex;gap:6px;margin-bottom:10px}
 .thumb{width:96px;height:72px;border-radius:10px;background:var(--subtle);display:grid;place-items:center;overflow:hidden}
 .thumb img{width:100%;height:100%;object-fit:contain;background:#fff}
 .thumb .ph{font-family:var(--mono);font-size:11px;color:var(--muted)}
@@ -200,9 +193,9 @@ tbody tr:last-child td{border-bottom:0}
   .side fieldset.facetset legend{grid-column:1/-1}
 }
 .reviewgrid{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:28px;align-items:start}
-.reviewimgs{display:grid;grid-template-columns:1fr;gap:12px}
-.reviewimgs.two{grid-template-columns:1fr 1fr}
-@media (max-width:860px){.reviewgrid,.reviewimgs.two{grid-template-columns:1fr}}
+.planimg.reviewimg{height:600px;min-height:0;padding:16px}
+.planimg.reviewimg img{max-height:100%}
+@media (max-width:860px){.reviewgrid{grid-template-columns:1fr}.planimg.reviewimg{height:420px}}
 footer{border-top:1px solid var(--line);padding:24px 0 40px;color:var(--muted);font-size:13px}
 
 @media (max-width:860px){
@@ -479,43 +472,11 @@ document.addEventListener('click', (e) => {
 const expanded = new Set();
 
 // ---------- pieces ----------
-// Renders a floor plan drawing (see labels/plan-drawings.json) as an SVG string.
-// Colors come from CSS variables so light and dark mode both work.
-function planDrawingSVG(d, label) {
-  const rect = (r) => r.p ? 'M' + r.p.map((q) => q.join(' ')).join('L') + 'Z' : 'M' + r[0] + ' ' + r[1] + 'H' + r[2] + 'V' + r[3] + 'H' + r[0] + 'Z';
-  const paths = (list) => (list || []).map(rect).join('');
-  const tub = (r) => { const x = r[0], y = r[1], w = r[2] - r[0], h = r[3] - r[1], k = Math.min(w, h) / 2.4;
-    return `M${x + k} ${y}H${x + w - k}A${k} ${k} 0 0 1 ${x + w} ${y + k}V${y + h - k}A${k} ${k} 0 0 1 ${x + w - k} ${y + h}H${x + k}A${k} ${k} 0 0 1 ${x} ${y + h - k}V${y + k}A${k} ${k} 0 0 1 ${x + k} ${y}Z`; };
-  const shower = (r) => rect(r) + `M${r[0]} ${r[1]}L${r[2]} ${r[3]}M${r[2]} ${r[1]}L${r[0]} ${r[3]}`;
-  const pts = [...d.outline, ...(d.balcony || []).flatMap((r) => [[r[0], r[1]], [r[2], r[3]]])];
-  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
-  const minX = Math.min(...xs), minY = Math.min(...ys), w = Math.max(...xs) - minX, h = Math.max(...ys) - minY, pad = Math.max(w, h) * 0.03;
-  const vb = [minX - pad, minY - pad, w + 2 * pad, h + 2 * pad].map((n) => +n.toFixed(1)).join(' ');
-  const ve = 'vector-effect="non-scaling-stroke"';
-  return `<svg viewBox="${vb}" preserveAspectRatio="xMidYMid meet" fill="none" role="img" aria-label="${label || 'Floor plan'}" class="plansvg">`
-    + `<path ${ve} d="${paths(d.balcony)}" fill="var(--balconyFill)" stroke="var(--balconyLine)" stroke-width="1.2" stroke-dasharray="3 2"/>`
-    + `<path ${ve} d="${paths(d.bed)}" fill="var(--bedFill)" stroke="var(--bedLine)" stroke-width="1.2"/>`
-    + `<path ${ve} d="${paths(d.bath)}" fill="var(--bathFill)" stroke="var(--bathLine)" stroke-width="1.2"/>`
-    + `<path ${ve} d="${paths(d.closet)}" fill="var(--closetFill)" stroke="var(--closetLine)" stroke-width="1.2"/>`
-    + `<path ${ve} d="M${d.outline.map((p) => p.join(' ')).join('L')}Z" stroke="var(--ink)" stroke-width="2.2" stroke-linejoin="round"/>`
-    + (d.walls ? `<path ${ve} d="${d.walls}" stroke="var(--muted)" stroke-width="1.4" stroke-linecap="round"/>` : '')
-    + `<path ${ve} d="${paths(d.kitchen)}" fill="var(--accentSoft)" stroke="var(--accent)" stroke-width="1.4" stroke-linejoin="round"/>`
-    + `<path ${ve} d="${(d.tubs || []).map(tub).join('')}" fill="var(--surface)" stroke="var(--bathLine)" stroke-width="1.3"/>`
-    + `<path ${ve} d="${(d.showers || []).map(shower).join('')}" stroke="var(--bathLine)" stroke-width="1.3" stroke-linejoin="round"/>`
-    + `</svg>`;
-}
-const DRAW = DATA.drawings || {};
-const drawingFor = (p) => { const k = DATA.planDrawings?.[B.get(p.building_id)?.name + '|' + p.name]; return k ? DRAW[k] : null; };
 const originalImg = (p) => p?.image_url
     ? `<img src="${esc(p.image_url)}" alt="${esc(p.name)} floor plan" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph',textContent:'Plan image unavailable'}))">`
     : `<span class="ph">No plan image</span>`;
-// Returns [innerHTML, extra class for the frame]. Drawn plans use the illustration;
-// plans not drawn yet show the building's image with a "Drawing coming soon" tag.
-function planVisual(p, { original = false, tag = true } = {}) {
-  const d = p && drawingFor(p);
-  if (d && !original) return [planDrawingSVG(d, esc(p.name) + ' floor plan, simplified drawing'), 'drawn'];
-  return [originalImg(p) + (!d && tag && p?.image_url ? '<span class="soon">Drawing coming soon</span>' : ''), ''];
-}
+// Returns [innerHTML, extra class for the frame]: always the building's own floor plan image.
+function planVisual(p) { return [originalImg(p), '']; }
 function barsFor(all) {
   if (!all || !all.length) return '<p class="muted small" style="margin:0">Only one price is listed.</p>';
   const max = Math.max(...all.map((x) => x[1])), best = Math.min(...all.map((x) => x[1]));
@@ -623,7 +584,6 @@ function pageHome() {
 }
 let feedLimit = 20;
 let moreOpen = false;
-let planView = 'drawing';
 function searchBtn() {
   const on = !!W.search[searchKey(LAY)];
   return `<button type="button" class="btn ${on ? 'watching' : ''}" data-wsearch="1" aria-pressed="${on}">${on ? '★ Watching this search' : '☆ Watch this search'}</button>`;
@@ -722,9 +682,7 @@ function pagePlan(id) {
   <div class="crumbs"><a href="#/building/${b.id}">${esc(b.name)}</a> · ${esc(p.name)}</div>
   <div class="split">
     <section aria-label="Floor plan">
-      ${drawingFor(p) ? `<div class="viewtoggle" role="group" aria-label="Plan view"><button type="button" class="chip" aria-pressed="${planView === 'drawing'}" data-pv="drawing">Drawing</button><button type="button" class="chip" aria-pressed="${planView === 'original'}" data-pv="original">Original plan</button></div>` : ''}
-      ${(([h, c]) => `<div class="planimg ${c}">${h}</div>`)(planVisual(p, { original: planView === 'original' }))}
-      ${drawingFor(p) ? `<p class="small muted" style="margin:8px 0 0">${planView === 'original' ? "The building's own plan image." : "Simplified drawing traced from the building's plan, not checked yet. Switch to Original plan for every detail."}</p>` : ''}
+      ${(([h, c]) => `<div class="planimg ${c}">${h}</div>`)(planVisual(p))}
     </section>
     <section class="stack" style="gap:24px">
       <div style="display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end">
@@ -877,11 +835,11 @@ function applyReviews() {
     if (done) o.pending = false;
   }
 }
-// Review one drawing at a time: plans that share a layout get the same answers.
+// Review one plan at a time, least-confident first.
 function reviewQueue() {
   const trust = trustStats(), done = reviewedSet(), groups = new Map();
   for (const p of DATA.floorPlans) {
-    const key = DATA.planDrawings?.[B.get(p.building_id)?.name + '|' + p.name] || 'plan' + p.id;
+    const key = 'plan' + p.id;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(p);
   }
@@ -895,24 +853,24 @@ function reviewQueue() {
   }
   return q.sort((a, b) => a.conf - b.conf || a.lead.name.localeCompare(b.lead.name));
 }
-let reviewSkip = new Set(), reviewAns = {}, reviewView = 'both', reviewMsg = '';
+let reviewSkip = new Set(), reviewAns = {}, reviewMsg = '';
 const KSHAPES = [['u_shape', 'U-shape'], ['l_shape', 'L-shape'], ['galley', 'Galley'], ['single_wall', 'One wall']];
 function pageReview() {
   const q = reviewQueue().filter((g) => !reviewSkip.has(g.key));
-  const total = new Set(DATA.floorPlans.map((p) => DATA.planDrawings?.[B.get(p.building_id)?.name + '|' + p.name] || 'plan' + p.id)).size;
+  const total = DATA.floorPlans.length;
   const left = reviewQueue().length, doneCount = total - left;
   const trust = trustStats();
   const trustCards = ATTRS.map(([a, label]) => { const s = trust[a];
     return `<div class="card" style="padding:16px;display:flex;flex-direction:column;gap:8px"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><strong style="font-weight:500">${label}</strong><span class="pill ${s.trusted ? 'ok' : 'off'}">${s.trusted ? 'Auto-approving' : Math.min(s.streak, TRUST_STREAK) + ' / ' + TRUST_STREAK + ' in a row'}</span></div><div class="track" style="height:6px"><div class="fill best" style="width:${Math.min(100, s.streak / TRUST_STREAK * 100).toFixed(0)}%"></div></div><span class="small muted">${s.n ? 'Matched you ' + s.ok + ' of ' + s.n + ' times' : 'No reviews yet'}</span></div>`; }).join('');
   const head = `<div style="display:flex;flex-wrap:wrap;gap:12px 24px;justify-content:space-between;align-items:flex-end;margin-bottom:24px">
-    <div><h1 class="display" style="font-size:44px">Review layouts</h1><p class="muted" style="margin:6px 0 0">Least-confident layouts first. Fix anything Claude got wrong, or confirm it with one click. Plans that share a layout are answered together.</p></div>
-    <div style="min-width:280px;display:flex;flex-direction:column;gap:6px"><div style="display:flex;justify-content:space-between" class="small"><span><strong>${doneCount}</strong> <span class="muted">of ${total} layouts checked</span></span><span class="muted">${left} left</span></div><div class="track" style="height:8px"><div class="fill" style="width:${(doneCount / total * 100).toFixed(1)}%;background:var(--okFg)"></div></div></div>
+    <div><h1 class="display" style="font-size:44px">Review layouts</h1><p class="muted" style="margin:6px 0 0">Least-confident plans first. Fix anything Claude got wrong, or confirm it with one click.</p></div>
+    <div style="min-width:280px;display:flex;flex-direction:column;gap:6px"><div style="display:flex;justify-content:space-between" class="small"><span><strong>${doneCount}</strong> <span class="muted">of ${total} plans checked</span></span><span class="muted">${left} left</span></div><div class="track" style="height:8px"><div class="fill" style="width:${(doneCount / total * 100).toFixed(1)}%;background:var(--okFg)"></div></div></div>
   </div>`;
   const trustSec = `<section style="margin-top:32px;padding-top:24px;border-top:1px solid var(--line)" aria-labelledby="trusth">
     <div style="margin-bottom:16px"><h2 id="trusth" style="font-size:24px">When can you stop?</h2><p class="small muted" style="margin:6px 0 0;max-width:72ch">Every answer is scored against Claude's guess. After ${TRUST_STREAK} matches in a row on one question, new guesses of that kind that Claude is at least ${TRUST_MIN_CONF * 100}% sure of are approved automatically. Unsure ones still come here, and one miss resets the streak.</p></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px">${trustCards}</div></section>`;
-  if (!q.length) return head + `<div class="emptybox"><strong>${left ? "You've skipped the rest for now." : 'Every layout is checked. Nice work.'}</strong><span class="muted">${left ? 'Reload the page to see skipped layouts again.' : 'New plans show up here when a building adds them.'}</span></div>` + trustSec;
-  const g = q[0], p = g.lead, b = B.get(p.building_id), d = drawingFor(p);
+  if (!q.length) return head + `<div class="emptybox"><strong>${left ? "You've skipped the rest for now." : 'Every plan is checked. Nice work.'}</strong><span class="muted">${left ? 'Reload the page to see skipped plans again.' : 'New plans show up here when a building adds them.'}</span></div>` + trustSec;
+  const g = q[0], p = g.lead, b = B.get(p.building_id);
   const cur = {}; for (const [a] of ATTRS) { const gs = guessOf(p.id, a); cur[a] = a in reviewAns ? reviewAns[a] : gs ? gs.value : null; }
   const changed = ATTRS.some(([a]) => a in reviewAns && !same(reviewAns[a], guessOf(p.id, a)?.value));
   const opts = (a) => a === 'kitchen_shape' ? [...KSHAPES, [null, 'Not sure']] : [[true, 'Yes'], [false, 'No'], [null, 'Not sure']];
@@ -924,11 +882,9 @@ function pageReview() {
   return head + `<div class="reviewgrid">
     <section aria-label="Plan to review" class="stack" style="gap:12px;min-width:0">
       <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap"><h2 style="font-size:30px">${esc(names)} <span class="muted" style="font-size:16px">· ${esc(b.name)}</span></h2>
-        <div class="chips" role="group" aria-label="Compare">${d ? `<button type="button" class="chip" aria-pressed="${reviewView === 'both'}" data-rview="both">Side by side</button><button type="button" class="chip" aria-pressed="${reviewView === 'original'}" data-rview="original">Original only</button>` : ''}</div></div>
-      <div class="reviewimgs ${reviewView === 'both' && d ? 'two' : ''}">
-        <div class="planimg" style="min-height:420px">${originalImg(p)}</div>
-        ${reviewView === 'both' && d ? `<div class="planimg drawn" style="min-height:420px">${planDrawingSVG(d, esc(p.name) + ', Claude’s drawing')}</div>` : ''}
-      </div>
+        ${p.image_url ? `<a href="${esc(p.image_url)}" target="_blank" rel="noopener noreferrer">Open full size ↗</a>` : ''}
+      <div class="planimg reviewimg">${originalImg(p)}</div>
+      <p class="small muted" style="margin:0">The building's own floor plan. Use Open full size to zoom into the kitchen and bathroom.</p>
       ${note ? `<p class="small muted" style="margin:0"><strong style="color:var(--ink);font-weight:500">Claude's note:</strong> ${esc(note)}</p>` : ''}
     </section>
     <aside class="card" aria-label="Answers" style="padding:22px;display:flex;flex-direction:column;gap:18px">
@@ -1011,12 +967,8 @@ app.addEventListener('click', (e) => {
   if (bf) { const [k, v] = bf.dataset.bf.split(':'); if (k === 'reset') { bFilt.beds = 'any'; bFilt.avail = false; } else if (k === 'avail') bFilt.avail = !bFilt.avail; else bFilt[k] = v; render(); return; }
   const rv = e.target.closest('[data-rv]');
   if (rv) { const i = rv.dataset.rv.indexOf(':'); reviewAns[rv.dataset.rv.slice(0, i)] = JSON.parse(rv.dataset.rv.slice(i + 1)); reviewMsg = ''; render(); return; }
-  const rvw = e.target.closest('[data-rview]');
-  if (rvw) { reviewView = rvw.dataset.rview; render(); return; }
   if (e.target.closest('#rsave')) { saveReview(); return; }
   if (e.target.closest('#rskip')) { const g = reviewQueue().filter((x) => !reviewSkip.has(x.key))[0]; if (g) reviewSkip.add(g.key); reviewAns = {}; reviewMsg = ''; render(); window.scrollTo(0, 0); return; }
-  const pv = e.target.closest('[data-pv]');
-  if (pv) { planView = pv.dataset.pv; render(); return; }
   if (e.target.closest('#morebtn')) { moreOpen = !moreOpen; render(); return; }
   if (e.target.id === 'more') { feedLimit += 20; render(); return; }
   if (e.target.id === 'markall') { store.set('seen', Date.now()); render(); }
