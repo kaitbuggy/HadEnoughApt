@@ -721,7 +721,7 @@ function pageBuildings() {
   }).join('')}</div>`;
 }
 
-const bFilt = { beds: 'any', avail: false, max: 'any', sort: 'avail', more: false };
+const bFilt = { beds: 'any', avail: false, max: 'any', sort: 'new', more: false };
 function pageBuilding(id) {
   const b = B.get(id); if (!b) return notFound();
   const st = buildingStatus(b);
@@ -731,7 +731,11 @@ function pageBuilding(id) {
   const passBase = ({ p, a }) => (bFilt.beds === 'any' || (bFilt.beds === '2' ? p.beds >= 2 : String(p.beds) === bFilt.beds)) && (!bFilt.avail || a.count) && (bFilt.max === 'any' || (a.from && a.from <= Number(bFilt.max)));
   const base = allPlans.filter(passBase);
   const count = (group, v) => base.filter(({ p }) => layoutMatch(p.id, { ...LAY, [group]: [v] }) === 'yes').length;
-  const sort = (xs) => xs.sort(bFilt.sort === 'low' ? (x, y) => (x.a.from ?? 1e9) - (y.a.from ?? 1e9)
+  const latestOpen = (p) => { const ts = [...(winP.get(p.id) || []), ...unitsOfPlan(p.id).flatMap((u) => winU.get(u.id) || [])].filter((w) => !w.closed_at).map((w) => w.opened_at).sort(); return ts.length ? ts[ts.length - 1] : ''; };
+  const soonestOn = (a) => a.units.map((u) => unitRent(u)?.on).filter(Boolean).sort()[0] || '9';
+  const sort = (xs) => xs.sort(bFilt.sort === 'new' ? (x, y) => String(latestOpen(y.p)).localeCompare(String(latestOpen(x.p))) || y.a.count - x.a.count
+    : bFilt.sort === 'soon' ? (x, y) => soonestOn(x.a).localeCompare(soonestOn(y.a)) || (x.a.from ?? 1e9) - (y.a.from ?? 1e9)
+    : bFilt.sort === 'low' ? (x, y) => (x.a.from ?? 1e9) - (y.a.from ?? 1e9)
     : bFilt.sort === 'name' ? (x, y) => x.p.name.localeCompare(y.p.name, undefined, { numeric: true })
     : (x, y) => y.a.count - x.a.count || (x.a.from ?? 1e9) - (y.a.from ?? 1e9));
   const lowest = allPlans.filter((x) => x.a.from).sort((x, y) => x.a.from - y.a.from)[0];
@@ -782,7 +786,7 @@ function pageBuilding(id) {
       <p class="small muted" style="margin:0">Kitchens and bathrooms are labeled from each floor plan image and haven't all been checked yet.</p>
     </aside>
     <section class="stack" style="gap:16px;min-width:0" aria-label="Floor plans">
-      <div class="resultsbar"><p style="margin:0" aria-live="polite"><strong>${plans.length}</strong> <span class="muted">of ${allPlans.length} floor plans</span></p><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">${layActive() ? searchBtn() : ''}<div class="sortbox"><label for="bsort">Sort</label><select id="bsort" data-bsel="sort">${[['avail', 'Most available'], ['low', 'Lowest rent'], ['name', 'Name']].map(([v, l]) => `<option value="${v}" ${bFilt.sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div></div>
+      <div class="resultsbar"><p style="margin:0" aria-live="polite"><strong>${plans.length}</strong> <span class="muted">of ${allPlans.length} floor plans</span></p><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">${layActive() ? searchBtn() : ''}<div class="sortbox"><label for="bsort">Sort</label><select id="bsort" data-bsel="sort">${[['new', 'Newest listed'], ['avail', 'Most available'], ['low', 'Lowest rent'], ['soon', 'Soonest move-in'], ['name', 'Name']].map(([v, l]) => `<option value="${v}" ${bFilt.sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div></div>
       ${anyFilter ? `<div class="applied" aria-label="Applied filters">${appliedChips()}${bedChips.join('')}</div>` : ''}
       ${plans.length ? '' : layActive() ? emptyLayout('at ' + b.name + ' right now') : `<div class="emptybox"><strong>No floor plans match.</strong><button type="button" class="btn sm" data-lay="clearall">Clear filters</button></div>`}
       <div class="grid">${plans.map(tile).join('')}</div>
@@ -900,7 +904,7 @@ function compareParts(b, a) {
     row('Nearest major road', fmtSrc(ra), fmtSrc(rc), ra && -ra.meters, rc && -rc.meters),
     row('Highway', fmtSrc(ha), fmtSrc(hc), ha && -ha.meters, hc && -hc.meters),
     row('Nearest rail line', fmtSrc(la), fmtSrc(lc), la && -la.meters, lc && -lc.meters),
-    row('Noise complaints within ¼ mi', a.complaints ? 'About ' + a.complaints.perYear + ' a year (' + a.complaints.lateNightPerYear + ' late)' : '—', c.complaints ? 'About ' + c.complaints.perYear + ' a year (' + c.complaints.lateNightPerYear + ' late)' : '—', a.complaints?.perYear, c.complaints?.perYear, true, 3),
+    row('Noise complaints within ¼ mi', a.complaints ? 'About ' + a.complaints.perYear + ' per year (' + a.complaints.lateNightPerYear + ' at night)' : '—', c.complaints ? 'About ' + c.complaints.perYear + ' per year (' + c.complaints.lateNightPerYear + ' at night)' : '—', a.complaints?.perYear, c.complaints?.perYear, true, 3),
     row('Walk to the nearest park', hp ? (hp.minutes ? hp.minutes + ' min' : 'At door') + ' · ' + hp.name : '—', cp ? (cp.minutes ? cp.minutes + ' min' : 'At door') + ' · ' + cp.name : '—', hp?.meters, cp?.meters),
   ].join('');
   const table = `<div class="stack" style="gap:10px"><h3 class="kicker">Side by side</h3><div class="card" style="overflow-x:auto"><table class="cmptable"><thead><tr><th scope="col"><span class="sr">Measure</span></th><th scope="col">${esc(b.name)} <span class="muted" style="font-weight:400">(this unit)</span></th><th scope="col">${esc(ob.name)}</th></tr></thead><tbody>${rows}</tbody></table></div><p class="small muted" style="margin:0">The better value in each row is in bold; small differences aren't marked. Same sources and method for both buildings.</p></div>`;
@@ -916,7 +920,7 @@ function aroundSection(b) {
   const pos = n ? Math.min(100, Math.max(0, (n.db - 40) / 35 * 100)).toFixed(1) : 0;
   const tick = (v, l) => `<span class="ntick" style="left:${((v - 40) / 35 * 100).toFixed(1)}%"><i></i>${v} · ${l}</span>`;
   const facts = [...(a.sources || []).map((s) => [s.name, dist(s.meters)])];
-  if (a.complaints) facts.push(['Noise complaints within ¼ mi', a.complaints.perYear ? `About ${a.complaints.perYear} a year${a.complaints.lateNightPerYear ? `, ${a.complaints.lateNightPerYear} late at night` : ''}` : 'Almost none']);
+  if (a.complaints) facts.push(['Noise complaints within ¼ mi', a.complaints.perYear ? `About ${a.complaints.perYear} per year${a.complaints.lateNightPerYear ? ` (${a.complaints.lateNightPerYear} at night)` : ''}` : 'Almost none']);
   const noise = n ? `<article aria-labelledby="noiseh">
       <h3 id="noiseh" class="kicker">Noise</h3>
       <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap"><span class="bignum">${n.level}</span><span class="muted">${band} outside, 24-hour average</span></div>
@@ -927,7 +931,7 @@ function aroundSection(b) {
         <span class="nhint" aria-hidden="true">Hover to compare</span>
       </div>
       ${facts.length ? `<ul class="factlist">${facts.map(([k, v]) => `<li><span>${esc(k)}</span><span>${esc(v)}</span></li>`).join('')}</ul>` : ''}
-      <details class="how"><summary>How this is estimated</summary><p>Modeled outside the building, not measured inside, and the same for every unit here. Closed windows usually cut 20–30 dB. The noise map covers highway, major road, rail and air traffic, not local streets, bars or construction, so the complaint count helps fill that in. Sources: <a href="https://www.bts.gov/geospatial/national-transportation-noise-map" ${ext}>U.S. DOT noise map ↗</a>, <a href="https://www.openstreetmap.org" ${ext}>OpenStreetMap ↗</a>, <a href="https://data.austintexas.gov/Utilities-and-City-Services/Austin-311-Public-Data/xwdj-i9he" ${ext}>Austin 311 ↗</a></p></details>
+      <details class="how"><summary>How this is estimated</summary><p>Modeled outside the building, not measured inside, and the same for every unit here. Closed windows usually cut 20–30 dB. The noise map covers highway, major road, rail and air traffic, not local streets, bars or construction, so the complaint count helps fill that in: Austin 311 noise requests within ¼ mile, averaged over 3 years; "at night" means 10 pm to 6 am and is part of the total. Sources: <a href="https://www.bts.gov/geospatial/national-transportation-noise-map" ${ext}>U.S. DOT noise map ↗</a>, <a href="https://www.openstreetmap.org" ${ext}>OpenStreetMap ↗</a>, <a href="https://data.austintexas.gov/Utilities-and-City-Services/Austin-311-Public-Data/xwdj-i9he" ${ext}>Austin 311 ↗</a></p></details>
     </article>` : '';
   const w = a.walks || [];
   const park = w.find((x) => x.kind === 'park') || w[0];
