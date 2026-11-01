@@ -721,7 +721,7 @@ function pageBuildings() {
   }).join('')}</div>`;
 }
 
-const bFilt = { beds: 'any', avail: false, max: 'any', sort: 'avail', more: false };
+const bFilt = { beds: 'any', avail: false, max: 'any', sort: 'new', more: false };
 function pageBuilding(id) {
   const b = B.get(id); if (!b) return notFound();
   const st = buildingStatus(b);
@@ -731,7 +731,11 @@ function pageBuilding(id) {
   const passBase = ({ p, a }) => (bFilt.beds === 'any' || (bFilt.beds === '2' ? p.beds >= 2 : String(p.beds) === bFilt.beds)) && (!bFilt.avail || a.count) && (bFilt.max === 'any' || (a.from && a.from <= Number(bFilt.max)));
   const base = allPlans.filter(passBase);
   const count = (group, v) => base.filter(({ p }) => layoutMatch(p.id, { ...LAY, [group]: [v] }) === 'yes').length;
-  const sort = (xs) => xs.sort(bFilt.sort === 'low' ? (x, y) => (x.a.from ?? 1e9) - (y.a.from ?? 1e9)
+  const latestOpen = (p) => { const ts = [...(winP.get(p.id) || []), ...unitsOfPlan(p.id).flatMap((u) => winU.get(u.id) || [])].filter((w) => !w.closed_at).map((w) => w.opened_at).sort(); return ts.length ? ts[ts.length - 1] : ''; };
+  const soonestOn = (a) => a.units.map((u) => unitRent(u)?.on).filter(Boolean).sort()[0] || '9';
+  const sort = (xs) => xs.sort(bFilt.sort === 'new' ? (x, y) => String(latestOpen(y.p)).localeCompare(String(latestOpen(x.p))) || y.a.count - x.a.count
+    : bFilt.sort === 'soon' ? (x, y) => soonestOn(x.a).localeCompare(soonestOn(y.a)) || (x.a.from ?? 1e9) - (y.a.from ?? 1e9)
+    : bFilt.sort === 'low' ? (x, y) => (x.a.from ?? 1e9) - (y.a.from ?? 1e9)
     : bFilt.sort === 'name' ? (x, y) => x.p.name.localeCompare(y.p.name, undefined, { numeric: true })
     : (x, y) => y.a.count - x.a.count || (x.a.from ?? 1e9) - (y.a.from ?? 1e9));
   const lowest = allPlans.filter((x) => x.a.from).sort((x, y) => x.a.from - y.a.from)[0];
@@ -782,7 +786,7 @@ function pageBuilding(id) {
       <p class="small muted" style="margin:0">Kitchens and bathrooms are labeled from each floor plan image and haven't all been checked yet.</p>
     </aside>
     <section class="stack" style="gap:16px;min-width:0" aria-label="Floor plans">
-      <div class="resultsbar"><p style="margin:0" aria-live="polite"><strong>${plans.length}</strong> <span class="muted">of ${allPlans.length} floor plans</span></p><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">${layActive() ? searchBtn() : ''}<div class="sortbox"><label for="bsort">Sort</label><select id="bsort" data-bsel="sort">${[['avail', 'Most available'], ['low', 'Lowest rent'], ['name', 'Name']].map(([v, l]) => `<option value="${v}" ${bFilt.sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div></div>
+      <div class="resultsbar"><p style="margin:0" aria-live="polite"><strong>${plans.length}</strong> <span class="muted">of ${allPlans.length} floor plans</span></p><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">${layActive() ? searchBtn() : ''}<div class="sortbox"><label for="bsort">Sort</label><select id="bsort" data-bsel="sort">${[['new', 'Newest listed'], ['avail', 'Most available'], ['low', 'Lowest rent'], ['soon', 'Soonest move-in'], ['name', 'Name']].map(([v, l]) => `<option value="${v}" ${bFilt.sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div></div>
       ${anyFilter ? `<div class="applied" aria-label="Applied filters">${appliedChips()}${bedChips.join('')}</div>` : ''}
       ${plans.length ? '' : layActive() ? emptyLayout('at ' + b.name + ' right now') : `<div class="emptybox"><strong>No floor plans match.</strong><button type="button" class="btn sm" data-lay="clearall">Clear filters</button></div>`}
       <div class="grid">${plans.map(tile).join('')}</div>
