@@ -155,6 +155,17 @@ tbody tr:last-child td{border-bottom:0}
 .star[aria-pressed="true"]{color:var(--accent)}
 .detail td{background:var(--subtle)}
 .detailgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px;padding:10px 4px}
+.rowpanel{border-left:3px solid var(--ink);background:var(--subtle);border-radius:0 12px 12px 0;padding:18px 22px;display:flex;flex-direction:column;gap:16px;margin:4px 0 8px}
+.rowpanel .lead{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px 20px}
+.rowpanel .lead p{margin:0;font-size:16px;line-height:1.45}
+.leasefigs{display:flex;flex-wrap:wrap;row-gap:10px;margin:0;padding:0;list-style:none}
+.leasefigs li{display:flex;flex-direction:column;gap:2px;min-width:84px;padding-right:18px;margin-right:18px;border-right:1px solid var(--line)}
+.leasefigs li:last-child{border-right:0}
+.leasefigs .m{font-size:12px;color:var(--muted)}
+.leasefigs .v{font-family:var(--mono);font-size:15px;color:var(--muted)}
+.leasefigs .best .v{color:var(--ink);font-weight:600}
+.leasefigs .tag{font-size:11px;font-weight:500;color:var(--accent)}
+.rowfoot{display:flex;flex-wrap:wrap;gap:6px 28px;padding-top:14px;border-top:1px solid var(--line);font-size:14px}
 .dlabel{font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
 
 .bars{display:flex;flex-direction:column;gap:7px}
@@ -781,6 +792,25 @@ function pageBuilding(id) {
   : `<div class="note" style="margin-top:28px"><strong>${esc(st.text)}.</strong> <span class="muted">You can still watch it; once it's connected, its units show up here and on your Watchlist.</span></div>`}`;
 }
 
+// Expanded unit row: the answer first, lease prices as read-only figures, then where it sits and when it could return.
+function unitPanel(u, o, r, last) {
+  let figs = (r?.all || []).filter(([m]) => m >= 6);
+  if (figs.length > 6) { const keep = new Set([6, 9, 12, 15, 18, r.months]); figs = figs.filter(([m]) => keep.has(m)); }
+  const lead = o && r?.rent
+    ? `<strong style="font-weight:600">${money(r.rent)}${r.months ? (/^(8|11|18)$/.test(String(r.months)) ? ' on an ' : ' on a ') + r.months + '-month lease' : ''}</strong> <span class="muted">· ${esc(join(r.on && moveIn(r.on), figs.length > 1 && 'shorter leases cost more'))}</span>`
+    : `<strong style="font-weight:600">Not listed right now</strong>${last?.max_rent_seen ? ` <span class="muted">· last listed at ${money(last.min_rent_seen || last.max_rent_seen)}</span>` : ''}`;
+  const where = join(u.floor != null && 'floor ' + u.floor + (u.is_top_floor ? ' (top)' : ''), u.view_of ? 'faces ' + (viewLabel(u.view_of) || u.view_of).toLowerCase() : null);
+  const n = (winU.get(u.id) || []).length;
+  return `<div class="rowpanel">
+    <div class="lead"><p>${lead}</p><a href="#/unit/${u.id}" style="font-size:14px;font-weight:500;white-space:nowrap">Open unit ${esc(u.unit_number || '')} →</a></div>
+    ${o && figs.length > 1 ? `<div><div class="kicker" style="margin-bottom:8px">Rent by lease length</div><ul class="leasefigs">${figs.map(([m, v]) => `<li class="${v === r.rent ? 'best' : ''}"><span class="m">${m} months</span><span class="v">${money(v)}</span>${v === r.rent ? '<span class="tag">Lowest</span>' : ''}</li>`).join('')}</ul></div>` : ''}
+    <div class="rowfoot">
+      <span><span class="muted">Where it sits:</span> ${esc(where ? where.charAt(0).toUpperCase() + where.slice(1) : 'Not known yet')}${u.view_of ? '' : ` · <a href="#/review" data-gotab="facing">Help check</a>`}</span>
+      <span><span class="muted">Could come back:</span> ${(() => { const c = comeBack(u), m = c.match(/<strong>(.*?)<\/strong>/); return m ? 'around ' + m[1] + (o ? ' if it leases soon' : '') : c; })()}</span>
+      <span><span class="muted">Tracked:</span> listed ${n} ${n === 1 ? 'time' : 'times'} since ${esc(fmtDate(u.first_seen_at, { month: 'short', day: 'numeric' }))}</span>
+    </div>
+  </div>`;
+}
 function pagePlan(id) {
   const p = P.get(id); if (!p) return notFound();
   const b = B.get(p.building_id), a = planAvail(p);
@@ -824,11 +854,7 @@ function pagePlan(id) {
               <td><span class="pill ${o ? 'ok' : 'off'}">${o ? 'Available' : last ? 'Leased ' + fmtDay(last.closed_at.slice(0, 10)) : 'Not listed'}</span></td>
               <td class="mono">${r ? money(r.rent) + (r.on ? ' · ' + (r.on <= todayISO ? 'now' : fmtDay(r.on)) : '') : '—'}</td>
               <td class="c-watch"><button type="button" class="star" data-watch="unit:${u.id}" aria-pressed="${watching('unit', u.id)}" aria-label="Watch ${esc(unitName(u))}" title="${watching('unit', u.id) ? 'Watching: changes show on your Watchlist' : 'Watch: get alerts when this unit changes or comes back'}">${watching('unit', u.id) ? '★' : '☆'}</button></td>
-            </tr>${ex ? `<tr class="detail"><td colspan="7"><div class="detailgrid">
-              <div><div class="dlabel">Rent by lease length</div>${o ? barsFor(r?.all) : '<p class="muted small" style="margin:0">Not listed right now.</p>'}</div>
-              <div><div class="dlabel">When it could come back</div><p style="margin:0">${comeBack(u)}</p></div>
-              <div><div class="dlabel">Tracked</div><p style="margin:0" class="small">First seen ${esc(fmtDate(u.first_seen_at))}.<br>Listed ${(winU.get(u.id) || []).length} ${(winU.get(u.id) || []).length === 1 ? 'time' : 'times'} since.</p><p style="margin:10px 0 0"><a href="#/unit/${u.id}">Open unit page</a></p></div>
-            </div></td></tr>` : ''}`;
+            </tr>${ex ? `<tr class="detail"><td colspan="7">${unitPanel(u, o, r, last)}</td></tr>` : ''}`;
           }).join('')}</tbody></table></div>`
         : `<div class="note"><span class="muted">We haven't matched any unit numbers to this plan yet. They appear here as the building lists them.</span></div>`}
         <p class="small muted" style="margin:0">The list grows as units come online, so it may not show every unit in the building yet.</p>
