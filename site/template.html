@@ -128,6 +128,11 @@ select{height:36px;padding:0 36px 0 14px;border-radius:999px;border:1px solid va
 :root[data-theme="dark"] .tile .img{background:#EDEAE3}
 .tile .img img{width:100%;height:100%;object-fit:contain;padding:10px}
 .tile .img .ph{font-family:var(--mono);font-size:12px;color:#66635B}
+.tile{transition:border-color .15s ease,box-shadow .15s ease}
+a.tile:hover,a.tile:focus-visible{border-color:var(--control);box-shadow:0 2px 10px rgba(0,0,0,.06);outline:none}
+a.tile:hover .name,a.tile:focus-visible .name{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:4px}
+.statbtn{background:none;border:0;padding:0;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.statbtn:hover .small,.statbtn[aria-pressed="true"] .small{text-decoration:underline;text-underline-offset:3px}
 .tile .body{padding:16px 18px;display:flex;flex-direction:column;gap:4px}
 .tile .name{font-family:var(--serif);font-size:22px;line-height:1.2}
 .bcard{padding:22px;display:flex;flex-direction:column;gap:10px;text-decoration:none}
@@ -487,9 +492,9 @@ function updateHeader() {
   const fresh = watchEvents().filter((e) => new Date(e.at).getTime() > seenAt()).length;
   document.getElementById('wnew').textContent = fresh ? '· ' + fresh + ' new' : '';
 }
-function watchBtn(kind, id, label) {
-  const on = watching(kind, id);
-  return `<button type="button" class="btn ${on ? 'watching' : 'primary'}" data-watch="${kind}:${id}" aria-pressed="${on}" ${label ? `aria-label="${esc((on ? 'Stop watching ' : 'Watch ') + label)}"` : ''}>${on ? '★ Watching' : '☆ Watch'}</button>`;
+function watchBtn(kind, id, label, noun = '') {
+  const on = watching(kind, id), n = noun ? ' ' + noun : '';
+  return `<button type="button" class="btn ${on ? 'watching' : 'primary'}" data-watch="${kind}:${id}" aria-pressed="${on}" ${label ? `aria-label="${esc((on ? 'Stop watching ' : 'Watch ') + label)}"` : ''}>${on ? '★ Watching' + n : '☆ Watch' + n}</button>`;
 }
 document.addEventListener('click', (e) => {
   const b = e.target.closest('[data-watch]');
@@ -499,7 +504,7 @@ document.addEventListener('click', (e) => {
   if (l) {
     const [g, v] = l.dataset.lay.split(':');
     if (g === 'clear') { LAY.k = []; LAY.b = []; }
-    else if (g === 'clearall') { LAY.k = []; LAY.b = []; bFilt.beds = 'any'; bFilt.avail = false; }
+    else if (g === 'clearall') { LAY.k = []; LAY.b = []; bFilt.beds = 'any'; bFilt.avail = false; bFilt.max = 'any'; }
     else LAY[g] = LAY[g].includes(v) ? LAY[g].filter((x) => x !== v) : [...LAY[g], v];
     store.set('layout', LAY); render(); return;
   }
@@ -675,56 +680,68 @@ function pageBuildings() {
   }).join('')}</div>`;
 }
 
-const bFilt = { beds: 'any', avail: false };
+const bFilt = { beds: 'any', avail: false, max: 'any', sort: 'avail', more: false };
 function pageBuilding(id) {
   const b = B.get(id); if (!b) return notFound();
   const st = buildingStatus(b);
   const allPlans = plansOfBuilding(id).map((p) => ({ p, a: planAvail(p) }));
   const units = unitsOfBuilding(id), av = units.filter(unitOpen).length;
   const unlisted = allPlans.filter((x) => !x.a.count).length;
-  const passBase = ({ p, a }) => (bFilt.beds === 'any' || (bFilt.beds === '2' ? p.beds >= 2 : String(p.beds) === bFilt.beds)) && (!bFilt.avail || a.count);
+  const passBase = ({ p, a }) => (bFilt.beds === 'any' || (bFilt.beds === '2' ? p.beds >= 2 : String(p.beds) === bFilt.beds)) && (!bFilt.avail || a.count) && (bFilt.max === 'any' || (a.from && a.from <= Number(bFilt.max)));
   const base = allPlans.filter(passBase);
   const count = (group, v) => base.filter(({ p }) => layoutMatch(p.id, { ...LAY, [group]: [v] }) === 'yes').length;
-  const sort = (xs) => xs.sort((x, y) => (y.a.count > 0) - (x.a.count > 0) || (x.p.beds ?? 0) - (y.p.beds ?? 0) || (x.a.from ?? 1e9) - (y.a.from ?? 1e9));
+  const sort = (xs) => xs.sort(bFilt.sort === 'low' ? (x, y) => (x.a.from ?? 1e9) - (y.a.from ?? 1e9)
+    : bFilt.sort === 'name' ? (x, y) => x.p.name.localeCompare(y.p.name, undefined, { numeric: true })
+    : (x, y) => y.a.count - x.a.count || (x.a.from ?? 1e9) - (y.a.from ?? 1e9));
+  const lowest = allPlans.filter((x) => x.a.from).sort((x, y) => x.a.from - y.a.from)[0];
+  const area = DATA.area?.buildings?.[b.id];
+  const park = area?.walks?.find((w) => w.kind === 'park') || area?.walks?.[0];
   const plans = sort(base.filter(({ p }) => layoutMatch(p.id, LAY) === 'yes'));
   const maybe = sort(base.filter(({ p }) => layoutMatch(p.id, LAY) === 'maybe'));
-  const anyFilter = layActive() || bFilt.beds !== 'any' || bFilt.avail;
+  const anyFilter = layActive() || bFilt.beds !== 'any' || bFilt.avail || bFilt.max !== 'any';
+  const hiddenOn = (bFilt.beds !== 'any') + bFilt.avail + (bFilt.max !== 'any');
   const chip = (k, v, label) => `<button type="button" class="chip" aria-pressed="${bFilt[k] === v}" data-bf="${k}:${v}">${esc(label)}</button>`;
   const tile = ({ p, a }) => `<a class="card tile" href="#/plan/${p.id}">
       ${(([h, c]) => `<div class="img ${c}">${h}</div>`)(planVisual(p))}
       <div class="body">
-        <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><span class="name">${esc(p.name)}</span><span class="pill ${a.count ? 'ok' : 'off'}">${a.count ? a.count + ' available' : 'Not listed'}</span></div>
+        <span class="name">${esc(p.name)}</span>
         <span class="small muted">${esc(join(bedLabel(p.beds), bathLabel(p.baths), sqftLabel(p.sqft_min, p.sqft_max)))}</span>
         ${layoutTags(p.id)}
-        <span style="font-weight:500">${a.from ? 'From ' + money(a.from) : '<span class="muted">Last seen ' + esc(fmtDate(p.last_seen_at)) + '</span>'}</span>
+        <span style="display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline;margin-top:4px"><span class="pill ${a.count ? 'ok' : 'off'}">${a.count ? a.count + ' available' : 'Not listed'}</span><span class="small muted">${a.from ? 'from ' + money(a.from) : 'last seen ' + esc(fmtDate(p.last_seen_at))}</span></span>
       </div></a>`;
   const bedChips = [];
   if (bFilt.beds !== 'any') bedChips.push(`<button type="button" class="appchip" data-bf="beds:any" aria-label="Remove filter: bedrooms">${bFilt.beds === '0' ? 'Studio' : bFilt.beds === '2' ? '2+ beds' : '1 bed'}<span aria-hidden="true">×</span></button>`);
+  if (bFilt.max !== 'any') bedChips.push(`<button type="button" class="appchip" data-bf="max:any" aria-label="Remove filter: max rent">Under ${money(Number(bFilt.max))}<span aria-hidden="true">×</span></button>`);
   if (bFilt.avail) bedChips.push(`<button type="button" class="appchip" data-bf="avail:toggle" aria-label="Remove filter: available now">Available now<span aria-hidden="true">×</span></button>`);
   return `
-  <div class="crumbs"><a href="#/buildings">Buildings</a> · ${esc(b.city)}</div>
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="#/buildings">Buildings</a> <span aria-hidden="true">›</span> <span aria-current="page">${esc(b.name)}</span></nav>
   <div style="display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:flex-end">
-    <div class="stack" style="gap:8px"><h1 class="display">${esc(b.name)}</h1><span class="muted">${esc(b.address || '')}</span></div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap">${b.website_url ? `<a class="btn" href="${esc(b.website_url)}" target="_blank" rel="noopener">Visit website ↗</a>` : ''}${watchBtn('building', b.id, b.name)}</div>
+    <div class="stack" style="gap:8px"><h1 class="display">${esc(b.name)}</h1><span class="muted">${esc(join(b.address, !b.address && b.city))}</span>
+      ${area?.noise || park ? `<p style="margin:2px 0 0;display:flex;flex-wrap:wrap;gap:4px 14px">${area?.noise ? `<span><strong style="font-weight:600">${esc(area.noise.level)}</strong> <span class="muted">${area.noise.low ? area.noise.low + '–' + Math.round(area.noise.high) + ' dB' : 'under 45 dB'} outside</span></span>` : ''}${park ? `<span><strong style="font-weight:600">${park.minutes ? park.minutes + ' min' : 'At door'}</strong> <span class="muted">walk to ${esc(park.name)}</span></span>` : ''}<span class="muted">Noise and walking details on each unit page</span></p>` : ''}</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start">${b.website_url ? `<a class="btn" href="${esc(b.website_url)}" target="_blank" rel="noopener">Visit website ↗</a>` : ''}<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">${watchBtn('building', b.id, b.name, 'building').replace('<button ', '<button aria-describedby="bwhint" ')}<span id="bwhint" class="small muted">Alerts when any plan here lists</span></div></div>
   </div>
   ${st.ok ? `
   <section class="stats" aria-label="Building summary">
-    <div><div class="stat">${units.length}</div><div class="small muted">units seen so far</div></div>
-    <div><div class="stat">${av}</div><div class="small muted">available now</div></div>
+    <div><button type="button" class="statbtn" data-bf="avail:toggle" aria-pressed="${bFilt.avail}"><div class="stat" style="color:var(--okFg)">${av}</div><div class="small muted">available now · ${bFilt.avail ? 'showing only these' : 'show only these'}</div></button></div>
+    <div><div class="stat">${lowest ? money(lowest.a.from) : '—'}</div><div class="small muted">${lowest ? 'lowest rent now (' + esc(lowest.p.name) + ')' : 'lowest rent now'}</div></div>
     <div><div class="stat">${allPlans.length}</div><div class="small muted">floor plans, ${unlisted} not listed now</div></div>
     <div><div class="stat">${fmtTime(RUN.get(id).finished_at || RUN.get(id).started_at)}</div><div class="small muted">last checked, twice daily</div></div>
   </section>
   <div class="withside">
     <aside class="side" aria-label="Filter floor plans">
       <div style="display:flex;justify-content:space-between;align-items:baseline"><h2 style="font-size:24px">Filters</h2>${anyFilter ? '<button type="button" class="linkbtn" data-lay="clearall">Clear all</button>' : ''}</div>
-      <fieldset class="facetset"><legend class="flabel">Kitchen shape</legend>${facetButtons('k', KITCHEN, (v) => count('k', v))}</fieldset>
-      <fieldset class="facetset"><legend class="flabel">Bathroom</legend>${facetButtons('b', BATH, (v) => count('b', v))}</fieldset>
+      <fieldset class="facetset"><legend class="flabel">Kitchen shape <span class="hint">· pick any</span></legend>${facetButtons('k', KITCHEN, (v) => count('k', v))}</fieldset>
+      <fieldset class="facetset"><legend class="flabel">Bathroom <span class="hint">· pick any</span></legend>${facetButtons('b', BATH, (v) => count('b', v))}</fieldset>
+      <button type="button" class="btn sm" data-bf="more:toggle" aria-expanded="${bFilt.more}" aria-controls="bmore" style="align-self:flex-start;max-width:100%;height:auto;min-height:36px;padding-top:6px;padding-bottom:6px;white-space:normal;text-align:left"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>${bFilt.more ? 'Hide beds, rent & availability' : 'Beds, rent & availability'}${hiddenOn ? ' · ' + hiddenOn + ' on' : ''}</button>
+      ${bFilt.more ? `<div id="bmore" class="stack" style="gap:18px;padding-top:16px;border-top:1px solid var(--line)">
       <fieldset><legend class="flabel">Bedrooms</legend><div class="chips">${chip('beds', 'any', 'Any')}${chip('beds', '0', 'Studio')}${chip('beds', '1', '1')}${chip('beds', '2', '2+')}</div></fieldset>
+      <div class="fgroup"><label class="flabel" for="bmax">Max rent</label><select id="bmax" data-bsel="max">${['any', '1500', '2000', '2500', '3000', '4000'].map((v) => `<option value="${v}" ${bFilt.max === v ? 'selected' : ''}>${v === 'any' ? 'Any' : money(Number(v))}</option>`).join('')}</select></div>
       <fieldset><legend class="flabel">Availability</legend><div class="chips"><button type="button" class="chip" aria-pressed="${bFilt.avail}" data-bf="avail:toggle">Available now</button></div></fieldset>
+      </div>` : ''}
       <p class="small muted" style="margin:0">Kitchens and bathrooms are labeled from each floor plan image and haven't all been checked yet.</p>
     </aside>
     <section class="stack" style="gap:16px;min-width:0" aria-label="Floor plans">
-      <div class="resultsbar"><p style="margin:0" aria-live="polite"><strong>${plans.length}</strong> <span class="muted">of ${allPlans.length} floor plans</span></p>${layActive() ? searchBtn() : ''}</div>
+      <div class="resultsbar"><p style="margin:0" aria-live="polite"><strong>${plans.length}</strong> <span class="muted">of ${allPlans.length} floor plans</span></p><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">${layActive() ? searchBtn() : ''}<div class="sortbox"><label for="bsort">Sort</label><select id="bsort" data-bsel="sort">${[['avail', 'Most available'], ['low', 'Lowest rent'], ['name', 'Name']].map(([v, l]) => `<option value="${v}" ${bFilt.sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div></div>
       ${anyFilter ? `<div class="applied" aria-label="Applied filters">${appliedChips()}${bedChips.join('')}</div>` : ''}
       ${plans.length ? '' : layActive() ? emptyLayout('at ' + b.name + ' right now') : `<div class="emptybox"><strong>No floor plans match.</strong><button type="button" class="btn sm" data-lay="clearall">Clear filters</button></div>`}
       <div class="grid">${plans.map(tile).join('')}</div>
@@ -1065,7 +1082,7 @@ app.addEventListener('click', (e) => {
   const f = e.target.closest('[data-f]');
   if (f) { const [k, v] = f.dataset.f.split(':'); if (k === 'reset' || k === 'resetall') { Object.assign(filt, { b: 'all', beds: 'any', max: 'any' }); if (k === 'resetall') { LAY.k = []; LAY.b = []; store.set('layout', LAY); } store.set('filters', filt); render(); } else setFilt(k, v); return; }
   const bf = e.target.closest('[data-bf]');
-  if (bf) { const [k, v] = bf.dataset.bf.split(':'); if (k === 'reset') { bFilt.beds = 'any'; bFilt.avail = false; } else if (k === 'avail') bFilt.avail = !bFilt.avail; else bFilt[k] = v; render(); return; }
+  if (bf) { const [k, v] = bf.dataset.bf.split(':'); if (k === 'reset') { bFilt.beds = 'any'; bFilt.avail = false; bFilt.max = 'any'; } else if (k === 'avail') bFilt.avail = !bFilt.avail; else if (k === 'more') bFilt.more = !bFilt.more; else bFilt[k] = v; render(); return; }
   const rv = e.target.closest('[data-rv]');
   if (rv) { const i = rv.dataset.rv.indexOf(':'); reviewAns[rv.dataset.rv.slice(0, i)] = JSON.parse(rv.dataset.rv.slice(i + 1)); reviewMsg = ''; render(); return; }
   if (e.target.closest('#rsave')) { saveReview(); return; }
@@ -1074,7 +1091,7 @@ app.addEventListener('click', (e) => {
   if (e.target.id === 'more') { feedLimit += 20; render(); return; }
   if (e.target.id === 'markall') { store.set('seen', Date.now()); render(); }
 });
-app.addEventListener('change', (e) => { const s = e.target.closest('[data-fsel]'); if (s) setFilt(s.dataset.fsel, s.value); });
+app.addEventListener('change', (e) => { const s = e.target.closest('[data-fsel]'); if (s) setFilt(s.dataset.fsel, s.value); const bs = e.target.closest('[data-bsel]'); if (bs) { bFilt[bs.dataset.bsel] = bs.value; render(); } });
 let lastPage = '';
 window.addEventListener('hashchange', () => { const p = location.hash.split('/')[1] || ''; render(); if (p !== lastPage || true) window.scrollTo(0, 0); lastPage = p; });
 document.addEventListener('keydown', (e) => {
