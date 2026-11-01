@@ -1,5 +1,7 @@
 # Unit Tracker: Phase 1
 
+**Live site: [kaitbuggy.github.io/HadEnoughApt](https://kaitbuggy.github.io/HadEnoughApt/)** · Help check floor plans on the [Review page](https://kaitbuggy.github.io/HadEnoughApt/#/review) (no sign-in).
+
 A tool for tracking specific apartment **units and floor plans**, not just buildings. It records the layout details listing sites leave out (kitchen shape, walk-in shower, ADA, which way a unit faces, whether it faces the courtyard) and keeps a **history of when each unit or plan was on the market**.
 
 ## What's here
@@ -7,7 +9,7 @@ A tool for tracking specific apartment **units and floor plans**, not just build
 | File | What it is |
 |---|---|
 | `db/schema.sql` | Postgres/Supabase schema. Tested on Postgres 16. |
-| `db/policies.sql` | Row-level security: anyone can read listing data, each visitor's watchlist and notes are private to them, and only admins can write labels. |
+| `db/policies.sql` | Row-level security: anyone can read listing data, each visitor's watchlist and notes are private to them, only admins can edit labels, and anyone can add a floor plan review (insert-only). |
 | `db/migrations/` | Changes for a database created before them. Run each once, in order, in the SQL Editor. |
 | `db/seed.sql` | The attributes screened on, plus 4 Austin buildings. |
 | `scraper/` | Node scraper: reads each building's availability page and records plans, units, prices and history. |
