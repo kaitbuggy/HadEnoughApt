@@ -7,26 +7,12 @@ permissions:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
+      - uses: actions/checkout@v5
+      - run: pip install pillow
       - run: |
-          UA='HadEnoughApt/1.0 (github.com/kaitbuggy/HadEnoughApt)'
-          curl -s -A "$UA" "https://nominatim.openstreetmap.org/search?format=json&limit=3&q=The%20Grand%20at%20the%20Domain%2C%20Austin" | head -c 600; echo
-          read X Y < <(python3 -c "import math;lat,lng=30.4051,-97.7147;print(round(lng*20037508.34/180,1), round(math.log(math.tan((90+lat)*math.pi/360))*20037508.34/math.pi,1))")
-          B="https://geo.dot.gov/server/rest/services/Hosted"
-          for svc in NTAD_Noise_2020_CONUS_Road NTAD_Noise_2020_CONUS_Aviation_Road_Rail Noise_road_CONUS_2018; do
-            echo "== $svc service"; curl -s "$B/$svc/MapServer?f=json" | python3 -c "import json,sys;d=json.load(sys.stdin);print(d.get('capabilities'),[ (l['id'],l['name']) for l in d.get('layers',[])], d.get('supportedImageFormatTypes'))"
-            for L in all top visible; do echo "-- identify $L"; curl -s "$B/$svc/MapServer/identify?f=json&geometry=%7B%22x%22%3A$X%2C%22y%22%3A$Y%7D&geometryType=esriGeometryPoint&sr=3857&layers=$L&tolerance=2&mapExtent=$(python3 -c "print(f'{$X-500},{$Y-500},{$X+500},{$Y+500}')")&imageDisplay=400,400,96&returnGeometry=false" | head -c 600; echo; done
-            echo "-- legend"; curl -s "$B/$svc/MapServer/legend?f=json" | python3 -c "import json,sys;d=json.load(sys.stdin);[print(l['layerId'],l['layerName'],[ (x.get('label'),x.get('values')) for x in l['legend']][:15]) for l in d.get('layers',[])]"
-          done
-          echo "== export pixel"
-          curl -s -o px.png "$B/NTAD_Noise_2020_CONUS_Aviation_Road_Rail/MapServer/export?f=image&format=png32&transparent=true&bbox=$(python3 -c "print(f'{$X-200},{$Y-200},{$X+200},{$Y+200}')")&bboxSR=3857&imageSR=3857&size=41,41"
-          file px.png; python3 -c "
-          import zlib,struct
-          d=open('px.png','rb').read();print(len(d))
-          "
-          echo "== overpass"
-          curl -s -A "$UA" -H 'Accept: application/json' --data-urlencode 'data=[out:json][timeout:60];(way(around:300,30.4051,-97.7147)[highway];node(around:300,30.4051,-97.7147)[highway=street_lamp];);out tags 15;' https://overpass-api.de/api/interpreter | head -c 1200; echo
-          curl -s -A "$UA" --data-urlencode 'data=[out:json][timeout:60];node(around:300,30.4051,-97.7147)[highway=street_lamp];out count;' https://overpass.kumi.systems/api/interpreter | head -c 400; echo
-          echo "== 311 near Watson last year"
-          curl -s "https://data.austintexas.gov/resource/xwdj-i9he.json?\$select=count(*)&\$where=sr_type_desc='APD - Non Emergency Noise/Alarm'%20AND%20within_circle(sr_location_lat_long,30.4051,-97.7147,400)%20AND%20sr_created_date>'2025-11-01'" ; echo
+          git fetch -q origin site-data
+          git show origin/site-data:site-data.json > /tmp/sd.json
+          python3 tools/area_data.py /tmp/sd.json /tmp/area.json
+          cat /tmp/area.json
