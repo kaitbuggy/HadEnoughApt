@@ -101,6 +101,22 @@ select{height:36px;padding:0 36px 0 14px;border-radius:999px;border:1px solid va
 .thumb{width:96px;height:72px;border-radius:10px;background:var(--subtle);display:grid;place-items:center;overflow:hidden}
 .thumb img{width:100%;height:100%;object-fit:contain;background:#fff}
 .thumb .ph{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.feeditem{position:relative;transition:border-color .15s ease,box-shadow .15s ease}
+.feeditem:hover,.feeditem:focus-within{border-color:var(--control);box-shadow:0 2px 10px rgba(0,0,0,.06)}
+.feeditem .ftitle::after{content:'';position:absolute;inset:0;border-radius:18px}
+.feeditem .ftitle:focus-visible{outline:none}
+.feeditem .ftitle:focus-visible::after{outline:2px solid var(--control);outline-offset:2px}
+.feeditem:hover .ftitle{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:4px}
+.feeditem .fright .btn{position:relative;z-index:1}
+.bmark{display:inline-grid;place-items:center;min-width:24px;height:24px;padding:0 4px;box-sizing:border-box;border-radius:6px;border:1.5px solid var(--ink);font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.02em;color:var(--ink);flex-shrink:0}
+.bmark.big{min-width:34px;height:34px;padding:0 6px;border-radius:9px;font-size:13px}
+.fbld{display:inline-flex;align-items:center;gap:10px;font-size:17px;font-weight:600}
+.bgroup{display:flex;flex-direction:column;gap:12px}
+.bgroup+.bgroup{margin-top:24px}
+.bhead{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.bhead h3{font-family:var(--serif);font-size:26px;font-weight:400;margin:0}
+.bhead a{margin-left:auto;font-size:14px}
+.thumb img{width:100%;height:100%;object-fit:contain;background:#fff}
 .ftitle{font-family:var(--serif);font-size:22px;text-decoration:none;line-height:1.2}
 .fright{display:flex;align-items:center;gap:18px}
 .rent{font-family:var(--serif);font-size:24px;line-height:1.1;text-align:right}
@@ -523,9 +539,23 @@ function buildingStatus(b) {
 }
 
 // ---------- pages ----------
-const filt = store.get('filters', { b: 'all', beds: 'any', max: 'any', sort: 'new' });
+const filt = { view: 'bld', ...store.get('filters', { b: 'all', beds: 'any', max: 'any', sort: 'new' }) };
 function setFilt(k, v) { filt[k] = v; store.set('filters', filt); render(); }
 
+// Building marker: initials beside the building name (design system). Unique per building.
+const bMarks = (() => {
+  const m = new Map(), used = new Set();
+  const words = (n) => n.split(/\s+/).filter((w) => !/^(the|at|of|on|and)$/i.test(w));
+  for (const b of DATA.buildings) {
+    const w = words(b.name);
+    let k = w.slice(0, 2).map((x) => x[0]).join('').toUpperCase();
+    if (used.has(k)) k = (w[0] || b.name).slice(0, 2).toUpperCase();
+    if (used.has(k)) k = k + b.id;
+    used.add(k); m.set(b.id, k);
+  }
+  return m;
+})();
+const bMark = (b, big) => `<span class="bmark${big ? ' big' : ''}" aria-hidden="true">${esc(bMarks.get(b?.id) || '?')}</span>`;
 function pageHome() {
   const avail = DATA.units.filter(unitOpen);
   const recent = avail.filter((u) => !atStart(unitOpen(u).opened_at) && now - new Date(unitOpen(u).opened_at) < DAY).length;
@@ -580,26 +610,37 @@ function pageHome() {
   <section aria-labelledby="feedh" class="stack" style="gap:14px">
     <div class="resultsbar">
       <h2 id="feedh" style="font-size:28px" aria-live="polite">${list.length} ${list.length === 1 ? 'opening' : 'openings'}${layActive() ? ' with ' + esc(layWords(LAY)) : ''}</h2>
-      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">${layActive() ? searchBtn() : ''}<div class="sortbox"><label for="fsort">Sort</label><select id="fsort" data-fsel="sort">${[['new', 'Newest'], ['low', 'Lowest rent'], ['soon', 'Soonest move-in']].map(([v, l]) => `<option value="${v}" ${filt.sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">${layActive() ? searchBtn() : ''}<div class="chips" role="group" aria-label="Show">${chip('view', 'bld', 'By building')}${chip('view', 'all', 'All, newest first')}</div><div class="sortbox"><label for="fsort">Sort</label><select id="fsort" data-fsel="sort">${[['new', 'Newest'], ['low', 'Lowest rent'], ['soon', 'Soonest move-in']].map(([v, l]) => `<option value="${v}" ${filt.sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div>
     </div>
     ${maybeHome ? `<p class="small muted" style="margin:0">${maybeHome} more ${maybeHome === 1 ? 'unit is' : 'units are'} on plans whose layout isn't labeled yet.</p>` : ''}
     ${list.length ? '' : layActive() ? emptyLayout('in the buildings we track right now') : `<div class="emptybox"><strong>Nothing matches these filters.</strong><span class="muted">Try a higher max rent or another building.</span><button type="button" class="btn sm" data-f="reset:1">Clear filters</button></div>`}
-    <div class="feed">${shown.map(({ u, w, r, p }) => {
-      const b = B.get(u.building_id);
-      return `<article class="card feeditem">
+    ${(() => {
+      const card = ({ u, w, r, p }, showBld) => {
+        const b = B.get(u.building_id);
+        return `<article class="card feeditem">
         ${(([h, c]) => `<div class="thumb ${c}">${h}</div>`)(planVisual(p, { tag: false }))}
         <div class="stack" style="gap:2px;min-width:0">
-          <div class="small muted">${esc(listedLabel(w.opened_at))}${u.is_top_floor ? ' · <span class="pill acc">Top floor</span>' : ''}</div>
-          <a class="ftitle" href="#/unit/${u.id}">${esc(unitName(u))} · ${esc(p?.name || 'Floor plan')}</a>
-          <span class="small muted">${esc(join(b?.name, p && bedLabel(p.beds), p && bathLabel(p.baths), (u.sqft || p?.sqft_min) && (u.sqft || p.sqft_min) + ' sq ft', u.floor && 'floor ' + u.floor))}</span>
+          ${showBld ? `<span class="fbld">${bMark(b)}${esc(b?.name || '')}</span>` : ''}
+          <a class="ftitle" href="#/unit/${u.id}">${esc(unitName(u))} · ${esc(p?.name || 'Floor plan')}${showBld ? '' : `<span class="sr">, ${esc(b?.name || '')}</span>`}</a>
+          <span class="small muted">${esc(join(p && bedLabel(p.beds), p && bathLabel(p.baths), (u.sqft || p?.sqft_min) && (u.sqft || p.sqft_min) + ' sq ft', u.floor && 'floor ' + u.floor))}</span>
           ${p ? layoutTags(p.id) : ''}
+          <div class="small muted">${esc(listedLabel(w.opened_at))}${u.is_top_floor ? ' · <span class="pill acc">Top floor</span>' : ''}</div>
         </div>
         <div class="fright">
           <div><div class="rent">${money(r?.rent)}</div><div class="small muted" style="text-align:right">${esc(join(r?.months && r.months + ' mo', r?.on && moveIn(r.on)))}</div></div>
           ${watchBtn('unit', u.id, unitName(u))}
         </div>
       </article>`;
-    }).join('')}</div>
+      };
+      if (filt.view === 'all') return `<div class="feed">${shown.map((x) => card(x, true)).join('')}</div>`;
+      const order = [...new Set(shown.map((x) => x.u.building_id))];
+      return order.map((id) => {
+        const b = B.get(id), items = shown.filter((x) => x.u.building_id === id);
+        const openHere = avail.filter((u) => u.building_id === id);
+        const newHere = openHere.filter((u) => !atStart(unitOpen(u).opened_at) && now - new Date(unitOpen(u).opened_at) < DAY).length;
+        return `<section class="bgroup" aria-labelledby="bg${id}"><div class="bhead">${bMark(b, true)}<h3 id="bg${id}">${esc(b?.name || '')}</h3><span class="small muted">${esc(join(newHere ? newHere + ' new today' : null, openHere.length + ' available'))}</span><a href="#/building/${id}">Building page</a></div><div class="feed">${items.map((x) => card(x, false)).join('')}</div></section>`;
+      }).join('');
+    })()}
     ${list.length > shown.length ? `<button type="button" class="btn" id="more" style="align-self:center">Show ${Math.min(20, list.length - shown.length)} more</button>` : ''}
   </section>`;
 }
