@@ -12,7 +12,29 @@
    "has_tub": true,
    "kitchen_confidence": 0.8,
    "bath_confidence": 0.6,
-   "note": "Second bath looks like a glass shower stall; check."
+   "note": "Second bath looks like a glass shower stall; check.",
+   "bedrooms": {
+    "shown": true,
+    "rooms": [
+     {
+      "name": "Primary bedroom",
+      "size": "14'1\" × 13'11\"",
+      "in": [
+       169,
+       167
+      ]
+     },
+     {
+      "name": "Bedroom 2",
+      "size": "12' × 13'2\"",
+      "in": [
+       144,
+       158
+      ]
+     }
+    ]
+   },
+   "bedrooms_confidence": 0.95
   },
   {
    "building": "Griffis at The Domain",
@@ -23,7 +45,30 @@
    "has_tub": true,
    "kitchen_confidence": 0.8,
    "bath_confidence": 0.6,
-   "note": "Second bath looks like a glass shower stall; check."
+   "note": "Second bath looks like a glass shower stall; check.",
+   "bedrooms": {
+    "shown": true,
+    "rooms": [
+     {
+      "name": "Primary bedroom",
+      "size": "14'1\" × 13'11\"",
+      "in": [
+       169,
+       167
+      ]
+     },
+     {
+      "name": "Bedroom 2",
+      "size": "12' × 13'2\"",
+      "in": [
+       144,
+       158
+      ]
+     }
+    ]
+   },
+   "bedrooms_confidence": 0.85,
+   "bedrooms_note": "Same plan image as Cape Town; sizes read from it."
   },
   {
    "building": "Griffis at The Domain",
@@ -34,7 +79,21 @@
    "has_tub": true,
    "kitchen_confidence": 0.6,
    "bath_confidence": 0.8,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": true,
+    "rooms": [
+     {
+      "name": "Bedroom",
+      "size": "12'10\" × 11'8\"",
+      "in": [
+       154,
+       140
+      ]
+     }
+    ]
+   },
+   "bedrooms_confidence": 0.95
   },
   {
    "building": "Griffis at The Domain",
@@ -45,7 +104,22 @@
    "has_tub": true,
    "kitchen_confidence": 0.6,
    "bath_confidence": 0.8,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": true,
+    "rooms": [
+     {
+      "name": "Bedroom",
+      "size": "12'10\" × 11'8\"",
+      "in": [
+       154,
+       140
+      ]
+     }
+    ]
+   },
+   "bedrooms_confidence": 0.85,
+   "bedrooms_note": "Same plan image as Casablanca; sizes read from it."
   },
   {
    "building": "Griffis at The Domain",
@@ -56,7 +130,29 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.85,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": true,
+    "rooms": [
+     {
+      "name": "Bedroom 1",
+      "size": "12'6\" × 14'6\"",
+      "in": [
+       150,
+       174
+      ]
+     },
+     {
+      "name": "Bedroom 2",
+      "size": "14'6\" × 10'9\"",
+      "in": [
+       174,
+       129
+      ]
+     }
+    ]
+   },
+   "bedrooms_confidence": 0.95
   },
   {
    "building": "Griffis at The Domain",
@@ -67,7 +163,30 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.85,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": true,
+    "rooms": [
+     {
+      "name": "Bedroom 1",
+      "size": "12'6\" × 14'6\"",
+      "in": [
+       150,
+       174
+      ]
+     },
+     {
+      "name": "Bedroom 2",
+      "size": "14'6\" × 10'9\"",
+      "in": [
+       174,
+       129
+      ]
+     }
+    ]
+   },
+   "bedrooms_confidence": 0.85,
+   "bedrooms_note": "Same plan image as Cordoba; sizes read from it."
   },
   {
    "building": "Griffis at The Domain",
@@ -78,7 +197,21 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.85,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": true,
+    "rooms": [
+     {
+      "name": "Bedroom",
+      "size": "11'7\" × 14'",
+      "in": [
+       139,
+       168
+      ]
+     }
+    ]
+   },
+   "bedrooms_confidence": 0.95
   },
   {
    "building": "Griffis at The Domain",
@@ -89,7 +222,22 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.85,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": true,
+    "rooms": [
+     {
+      "name": "Bedroom",
+      "size": "11'7\" × 14'",
+      "in": [
+       139,
+       168
+      ]
+     }
+    ]
+   },
+   "bedrooms_confidence": 0.85,
+   "bedrooms_note": "Same plan image as Dubai; sizes read from it."
   },
   {
    "building": "Griffis at The Domain",
@@ -100,7 +248,21 @@
    "has_tub": true,
    "kitchen_confidence": 0.5,
    "bath_confidence": 0.8,
-   "note": "Counters wrap three sides of the kitchen; check the short third side."
+   "note": "Counters wrap three sides of the kitchen; check the short third side.",
+   "bedrooms": {
+    "shown": true,
+    "rooms": [
+     {
+      "name": "Bedroom",
+      "size": "11'7\" × 14'",
+      "in": [
+       139,
+       168
+      ]
+     }
+    ]
+   },
+   "bedrooms_confidence": 0.95
   },
   {
    "building": "Griffis at The Domain",
@@ -122,7 +284,21 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.85,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": true,
+    "rooms": [
+     {
+      "name": "Bedroom",
+      "size": "11'7\" × 12'10\"",
+      "in": [
+       139,
+       154
+      ]
+     }
+    ]
+   },
+   "bedrooms_confidence": 0.95
   },
   {
    "building": "Griffis at The Domain",
@@ -133,7 +309,22 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.85,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": true,
+    "rooms": [
+     {
+      "name": "Bedroom",
+      "size": "11'7\" × 12'10\"",
+      "in": [
+       139,
+       154
+      ]
+     }
+    ]
+   },
+   "bedrooms_confidence": 0.85,
+   "bedrooms_note": "Same plan image as Los Angeles; sizes read from it."
   },
   {
    "building": "Griffis at The Domain",
@@ -144,7 +335,21 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.85,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": true,
+    "rooms": [
+     {
+      "name": "Bedroom",
+      "size": "11'4\" × 13'8\"",
+      "in": [
+       136,
+       164
+      ]
+     }
+    ]
+   },
+   "bedrooms_confidence": 0.95
   },
   {
    "building": "Griffis at The Domain",
@@ -155,7 +360,21 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.85,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": true,
+    "rooms": [
+     {
+      "name": "Bedroom",
+      "size": "11'7\" × 14'11\"",
+      "in": [
+       139,
+       179
+      ]
+     }
+    ]
+   },
+   "bedrooms_confidence": 0.95
   },
   {
    "building": "Griffis at The Domain",
@@ -166,7 +385,22 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.85,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": true,
+    "rooms": [
+     {
+      "name": "Bedroom",
+      "size": "11'7\" × 14'11\"",
+      "in": [
+       139,
+       179
+      ]
+     }
+    ]
+   },
+   "bedrooms_confidence": 0.85,
+   "bedrooms_note": "Same plan image as Milan; sizes read from it."
   },
   {
    "building": "Griffis at The Domain",
@@ -199,7 +433,21 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.85,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": true,
+    "rooms": [
+     {
+      "name": "Bedroom",
+      "size": "11'6\" × 14'8\"",
+      "in": [
+       138,
+       176
+      ]
+     }
+    ]
+   },
+   "bedrooms_confidence": 0.95
   },
   {
    "building": "Griffis at The Domain",
@@ -210,7 +458,22 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.85,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": true,
+    "rooms": [
+     {
+      "name": "Bedroom",
+      "size": "11'6\" × 14'8\"",
+      "in": [
+       138,
+       176
+      ]
+     }
+    ]
+   },
+   "bedrooms_confidence": 0.85,
+   "bedrooms_note": "Same plan image as Paris; sizes read from it."
   },
   {
    "building": "Griffis at The Domain",
@@ -221,7 +484,21 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.85,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": true,
+    "rooms": [
+     {
+      "name": "Bedroom",
+      "size": "11'3\" × 13'8\"",
+      "in": [
+       135,
+       164
+      ]
+     }
+    ]
+   },
+   "bedrooms_confidence": 0.95
   },
   {
    "building": "Griffis at The Domain",
@@ -232,7 +509,22 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.85,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": true,
+    "rooms": [
+     {
+      "name": "Bedroom",
+      "size": "11'3\" × 13'8\"",
+      "in": [
+       135,
+       164
+      ]
+     }
+    ]
+   },
+   "bedrooms_confidence": 0.85,
+   "bedrooms_note": "Same plan image as Rome; sizes read from it."
   },
   {
    "building": "Griffis at The Domain",
@@ -243,7 +535,21 @@
    "has_tub": false,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.7,
-   "note": "Main bath has a glass shower; the half bath has none."
+   "note": "Main bath has a glass shower; the half bath has none.",
+   "bedrooms": {
+    "shown": true,
+    "rooms": [
+     {
+      "name": "Bedroom",
+      "size": "12'7\" × 13'5\"",
+      "in": [
+       151,
+       161
+      ]
+     }
+    ]
+   },
+   "bedrooms_confidence": 0.95
   },
   {
    "building": "Griffis at The Domain",
@@ -254,7 +560,22 @@
    "has_tub": false,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.7,
-   "note": "Main bath has a glass shower; the half bath has none."
+   "note": "Main bath has a glass shower; the half bath has none.",
+   "bedrooms": {
+    "shown": true,
+    "rooms": [
+     {
+      "name": "Bedroom",
+      "size": "12'7\" × 13'5\"",
+      "in": [
+       151,
+       161
+      ]
+     }
+    ]
+   },
+   "bedrooms_confidence": 0.85,
+   "bedrooms_note": "Same plan image as Shanghai; sizes read from it."
   },
   {
    "building": "Griffis at The Domain",
@@ -265,7 +586,29 @@
    "has_tub": true,
    "kitchen_confidence": 0.6,
    "bath_confidence": 0.8,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": true,
+    "rooms": [
+     {
+      "name": "Bedroom 1",
+      "size": "11' × 13'10\"",
+      "in": [
+       132,
+       166
+      ]
+     },
+     {
+      "name": "Bedroom 2",
+      "size": "11' × 13'10\"",
+      "in": [
+       132,
+       166
+      ]
+     }
+    ]
+   },
+   "bedrooms_confidence": 0.95
   },
   {
    "building": "Griffis at The Domain",
@@ -276,7 +619,30 @@
    "has_tub": true,
    "kitchen_confidence": 0.6,
    "bath_confidence": 0.8,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": true,
+    "rooms": [
+     {
+      "name": "Bedroom 1",
+      "size": "11' × 13'10\"",
+      "in": [
+       132,
+       166
+      ]
+     },
+     {
+      "name": "Bedroom 2",
+      "size": "11' × 13'10\"",
+      "in": [
+       132,
+       166
+      ]
+     }
+    ]
+   },
+   "bedrooms_confidence": 0.85,
+   "bedrooms_note": "Same plan image as Tel Aviv; sizes read from it."
   },
   {
    "building": "Griffis at The Domain",
@@ -287,7 +653,21 @@
    "has_tub": null,
    "kitchen_confidence": 0.8,
    "bath_confidence": null,
-   "note": "Bathroom fixtures aren't clear on this plan image."
+   "note": "Bathroom fixtures aren't clear on this plan image.",
+   "bedrooms": {
+    "shown": true,
+    "rooms": [
+     {
+      "name": "Bedroom",
+      "size": "10'9\" × 11'4\"",
+      "in": [
+       129,
+       136
+      ]
+     }
+    ]
+   },
+   "bedrooms_confidence": 0.95
   },
   {
    "building": "Griffis at The Domain",
@@ -298,7 +678,22 @@
    "has_tub": null,
    "kitchen_confidence": 0.8,
    "bath_confidence": null,
-   "note": "Bathroom fixtures aren't clear on this plan image."
+   "note": "Bathroom fixtures aren't clear on this plan image.",
+   "bedrooms": {
+    "shown": true,
+    "rooms": [
+     {
+      "name": "Bedroom",
+      "size": "10'9\" × 11'4\"",
+      "in": [
+       129,
+       136
+      ]
+     }
+    ]
+   },
+   "bedrooms_confidence": 0.85,
+   "bedrooms_note": "Same plan image as Tokyo; sizes read from it."
   },
   {
    "building": "Griffis at The Domain",
@@ -309,7 +704,29 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.85,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": true,
+    "rooms": [
+     {
+      "name": "Bedroom 1",
+      "size": "11' × 13'10\"",
+      "in": [
+       132,
+       166
+      ]
+     },
+     {
+      "name": "Bedroom 2",
+      "size": "11' × 13'10\"",
+      "in": [
+       132,
+       166
+      ]
+     }
+    ]
+   },
+   "bedrooms_confidence": 0.95
   },
   {
    "building": "Griffis at The Domain",
@@ -320,7 +737,30 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.85,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": true,
+    "rooms": [
+     {
+      "name": "Bedroom 1",
+      "size": "11' × 13'10\"",
+      "in": [
+       132,
+       166
+      ]
+     },
+     {
+      "name": "Bedroom 2",
+      "size": "11' × 13'10\"",
+      "in": [
+       132,
+       166
+      ]
+     }
+    ]
+   },
+   "bedrooms_confidence": 0.85,
+   "bedrooms_note": "Same plan image as Vienna; sizes read from it."
   },
   {
    "building": "The Watson",
@@ -331,7 +771,13 @@
    "has_tub": false,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -342,7 +788,13 @@
    "has_tub": false,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -353,7 +805,13 @@
    "has_tub": false,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -364,7 +822,13 @@
    "has_tub": false,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -375,7 +839,13 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.85,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -386,7 +856,13 @@
    "has_tub": false,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -397,7 +873,13 @@
    "has_tub": false,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -408,7 +890,13 @@
    "has_tub": false,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -419,7 +907,13 @@
    "has_tub": false,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -430,7 +924,13 @@
    "has_tub": false,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -441,7 +941,13 @@
    "has_tub": false,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -452,7 +958,13 @@
    "has_tub": false,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -463,7 +975,13 @@
    "has_tub": true,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -474,7 +992,13 @@
    "has_tub": true,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -485,7 +1009,13 @@
    "has_tub": false,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -496,7 +1026,13 @@
    "has_tub": true,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -507,7 +1043,13 @@
    "has_tub": true,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -518,7 +1060,13 @@
    "has_tub": false,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -529,7 +1077,13 @@
    "has_tub": false,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -540,7 +1094,13 @@
    "has_tub": false,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -551,7 +1111,13 @@
    "has_tub": false,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -562,7 +1128,13 @@
    "has_tub": true,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -573,7 +1145,13 @@
    "has_tub": true,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -584,7 +1162,13 @@
    "has_tub": true,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -595,7 +1179,13 @@
    "has_tub": true,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -606,7 +1196,13 @@
    "has_tub": true,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -617,7 +1213,13 @@
    "has_tub": false,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -628,7 +1230,13 @@
    "has_tub": false,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -639,7 +1247,13 @@
    "has_tub": true,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.6,
-   "note": "Rectangle beside the shower read as a tub; check."
+   "note": "Rectangle beside the shower read as a tub; check.",
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -650,7 +1264,13 @@
    "has_tub": true,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -661,7 +1281,13 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.85,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -672,7 +1298,13 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.85,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -683,7 +1315,13 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.85,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -694,7 +1332,13 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.85,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -705,7 +1349,13 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.85,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -716,7 +1366,13 @@
    "has_tub": false,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -727,7 +1383,13 @@
    "has_tub": false,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -738,7 +1400,13 @@
    "has_tub": false,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -749,7 +1417,13 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.85,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -760,7 +1434,13 @@
    "has_tub": true,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -771,7 +1451,13 @@
    "has_tub": true,
    "kitchen_confidence": 0.9,
    "bath_confidence": 0.9,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -782,7 +1468,13 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.85,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -793,7 +1485,13 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.85,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -804,7 +1502,13 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.85,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -815,7 +1519,13 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.85,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -826,7 +1536,13 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.6,
-   "note": "Rectangle beside the shower read as a tub; check."
+   "note": "Rectangle beside the shower read as a tub; check.",
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -837,7 +1553,13 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.6,
-   "note": "Rectangle beside the shower read as a tub; check."
+   "note": "Rectangle beside the shower read as a tub; check.",
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -848,7 +1570,13 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.85,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -859,7 +1587,13 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.85,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
@@ -870,7 +1604,13 @@
    "has_tub": true,
    "kitchen_confidence": 0.85,
    "bath_confidence": 0.85,
-   "note": null
+   "note": null,
+   "bedrooms": {
+    "shown": false,
+    "rooms": []
+   },
+   "bedrooms_confidence": 0.95,
+   "bedrooms_note": "The building's plan image doesn't print room sizes."
   },
   {
    "building": "The Watson",
