@@ -262,6 +262,8 @@ tbody tr:last-child td{border-bottom:0}
 .tab:focus-visible{outline:2px solid var(--control);outline-offset:2px}
 .undomsg{margin:2px 0 0;font-size:13px;text-align:center}
 .nudge{outline:1px solid var(--accent);outline-offset:10px;border-radius:12px}
+.sizein{width:76px;height:36px;padding:0 10px;border:1px solid var(--control);border-radius:10px;font:inherit;font-size:14px;background:var(--surface);color:var(--ink)}
+.sizein[aria-invalid="true"]{border-color:var(--accent)}
 .mapframe{height:600px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#fff}
 .mapframe iframe{width:100%;height:100%;border:0;display:block}
 @media (max-width:860px){.mapframe{height:480px}}
@@ -443,6 +445,7 @@ const UNIT0 = new Map(DATA.units.map((u) => [u.id, { view_of: u.view_of, facing:
 function resetLabels() {
   LBL.clear();
   for (const l of DATA.labels || []) {
+    if (l.attribute_key === 'bedroom_sizes') continue; // not a layout label; read through guessOf / reviews
     const o = LBL.get(l.floor_plan_id) || {};
     o[l.attribute_key] = l.value; if (l.status === 'pending') o.pending = true;
     LBL.set(l.floor_plan_id, o);
@@ -1063,6 +1066,11 @@ function applyReviews() {
   }
 }
 // Review one plan at a time, least-confident first.
+// Bedroom sizes (for "Will my bed fit?"): {shown, rooms: [{name, size, in: [w, l]}]} per plan with bedrooms.
+const BEDKEY = 'bedroom_sizes';
+const parseFtIn = (t) => { const m = String(t || '').trim().match(/^(\d{1,2})\s*(?:'|′|ft|\s)\s*(?:(\d{1,2})\s*(?:"|″|in)?)?$/); return m && +(m[2] || 0) < 12 ? +m[1] * 12 + +(m[2] || 0) : null; };
+const fmtFtIn = (n) => Math.floor(n / 12) + '′' + (n % 12 ? (n % 12) + '″' : '');
+const needsBed = (p) => (p.beds ?? 0) >= 1;
 function reviewQueue() {
   const trust = trustStats(), done = reviewedSet(), groups = new Map();
   for (const p of DATA.floorPlans) {
@@ -1073,10 +1081,11 @@ function reviewQueue() {
   const q = [];
   for (const [key, plans] of groups) {
     const lead = plans[0];
-    const open = ATTRS.filter(([a]) => !plans.every((p) => done.has(p.id + '|' + a)) && !(trust[a].trusted && (guessOf(lead.id, a)?.confidence ?? 0) >= TRUST_MIN_CONF));
-    if (!open.length || !LBL.get(lead.id)) continue;
-    const conf = Math.min(...open.map(([a]) => guessOf(lead.id, a)?.confidence ?? 0));
-    q.push({ key, plans, lead, conf });
+    const open = LBL.get(lead.id) ? ATTRS.filter(([a]) => !plans.every((p) => done.has(p.id + '|' + a)) && !(trust[a].trusted && (guessOf(lead.id, a)?.confidence ?? 0) >= TRUST_MIN_CONF)).map(([a]) => a) : [];
+    if (needsBed(lead) && guessOf(lead.id, BEDKEY) && !plans.every((p) => done.has(p.id + '|' + BEDKEY))) open.push(BEDKEY);
+    if (!open.length) continue;
+    const conf = Math.min(...open.map((a) => guessOf(lead.id, a)?.confidence ?? 0));
+    q.push({ key, plans, lead, conf, open });
   }
   return q.sort((a, b) => a.conf - b.conf || a.lead.name.localeCompare(b.lead.name));
 }
@@ -1241,7 +1250,16 @@ function pageReview() {
   const changed = ATTRS.some(([a]) => a in reviewAns && !same(reviewAns[a], guessOf(p.id, a)?.value));
   const opts = (a) => a === 'kitchen_shape' ? [...KSHAPES, [null, 'Not sure']] : [[true, 'Yes'], [false, 'No'], [null, 'Not sure']];
   const fmt = (a, v) => v == null ? 'not sure' : a === 'kitchen_shape' ? (KSHAPES.find((x) => x[0] === v) || [, v])[1] : v ? 'yes' : 'no';
-  const qs = ATTRS.map(([a, label]) => { const gs = guessOf(p.id, a), conf = gs?.confidence;
+  const bedQ = g.open.includes(BEDKEY) ? (() => {
+    const gs = guessOf(p.id, BEDKEY), gv = gs?.value || { shown: false, rooms: [] };
+    const v = reviewAns[BEDKEY] || gv;
+    const rooms = v.rooms?.length ? v.rooms : [{ name: (p.beds ?? 1) > 1 ? 'Bedroom 1' : 'Bedroom', in: [null, null] }];
+    const guessTxt = gv.shown ? gv.rooms.map((r) => r.in?.every(Boolean) ? r.in.map(fmtFtIn).join(' × ') : r.size).join(', ') : 'not shown on plan';
+    return `<fieldset style="border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:10px"><legend style="padding:0;margin:0 0 8px;display:flex;justify-content:space-between;width:100%;gap:8px"><span class="flabel">Bedroom size</span><span class="small" style="color:${(gs?.confidence ?? 1) < 0.7 ? 'var(--accent)' : 'var(--muted)'}">Claude: ${esc(guessTxt)}${gs?.confidence != null ? ' · ' + Math.round(gs.confidence * 100) + '% sure' : ''}</span></legend>
+      ${v.shown ? `<div class="stack" style="gap:8px">${rooms.map((r, i) => `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="min-width:92px;font-size:14px">${esc(r.name)}</span><input class="sizein" data-bsz="${i}:0" aria-label="${esc(r.name)} width" value="${r.in?.[0] ? fmtFtIn(r.in[0]) : ''}" placeholder="11′7″"><span class="muted">×</span><input class="sizein" data-bsz="${i}:1" aria-label="${esc(r.name)} length" value="${r.in?.[1] ? fmtFtIn(r.in[1]) : ''}" placeholder="14′"></div>`).join('')}<span class="small muted">As printed on the plan, like 11′7″. Fix a number if it's wrong.</span></div>` : ''}
+      <div class="chips"><button type="button" class="chip" aria-pressed="${!v.shown}" data-bnone="1">Not shown on plan</button></div></fieldset>`;
+  })() : '';
+  const qs = ATTRS.filter(([a]) => g.open.includes(a)).map(([a, label]) => { const gs = guessOf(p.id, a), conf = gs?.confidence;
     return `<fieldset style="border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:8px"><legend style="padding:0;margin:0 0 8px;display:flex;justify-content:space-between;width:100%;gap:8px"><span class="flabel">${label}</span><span class="small" style="color:${conf != null && conf < 0.7 ? 'var(--accent)' : 'var(--muted)'}">Claude: ${esc(fmt(a, gs?.value))}${conf != null ? ' · ' + Math.round(conf * 100) + '% sure' : ''}</span></legend><div class="chips">${opts(a).map(([v, l]) => `<button type="button" class="chip" aria-pressed="${same(cur[a], v)}" data-rv="${a}:${esc(JSON.stringify(v))}">${l}</button>`).join('')}</div></fieldset>`; }).join('');
   const note = (DATA.labels || []).find((l) => l.floor_plan_id === p.id && l.evidence)?.evidence;
   const names = g.plans.map((x) => x.name).join(' · ');
@@ -1254,9 +1272,9 @@ function pageReview() {
       ${note ? `<p class="small muted" style="margin:0"><strong style="color:var(--ink);font-weight:500">Claude's note:</strong> ${esc(note)}</p>` : ''}
     </section>
     <aside class="card" aria-label="Answers" style="padding:22px;display:flex;flex-direction:column;gap:18px">
-      ${qs}
+      ${qs}${bedQ}
       <div style="display:flex;flex-direction:column;gap:8px;padding-top:16px;border-top:1px solid var(--line)">
-        <button type="button" class="btn primary" id="rsave">${changed ? 'Save corrections' : 'Looks right'}</button>
+        <button type="button" class="btn primary" id="rsave">${changed || (BEDKEY in reviewAns && !same(reviewAns[BEDKEY], guessOf(p.id, BEDKEY)?.value)) ? 'Save corrections' : 'Looks right'}</button>
         <button type="button" class="btn sm" id="rskip">Skip for now</button>
         ${undoLine('layouts', 'Keys: 1–4 kitchen shape · Enter save · S skip')}
       </div>
@@ -1275,7 +1293,7 @@ async function postLabels(rows) {
 function saveReview() {
   const g = reviewQueue().filter((x) => !reviewSkip.has(x.key))[0]; if (!g) return;
   const rows = [];
-  for (const p of g.plans) for (const [a] of ATTRS) {
+  for (const p of g.plans) for (const a of g.open) {
     const guess = guessOf(g.lead.id, a)?.value ?? null;
     const value = a in reviewAns ? reviewAns[a] : guess;
     rows.push({ floor_plan_id: p.id, attribute_key: a, value, source: 'user', status: same(value, guess) ? 'accepted' : 'corrected' });
@@ -1331,6 +1349,7 @@ app.addEventListener('click', (e) => {
   if (f) { const [k, v] = f.dataset.f.split(':'); if (k === 'reset' || k === 'resetall') { Object.assign(filt, { b: 'all', beds: 'any', max: 'any' }); if (k === 'resetall') { LAY.k = []; LAY.b = []; store.set('layout', LAY); } store.set('filters', filt); render(); } else setFilt(k, v); return; }
   const bf = e.target.closest('[data-bf]');
   if (bf) { const [k, v] = bf.dataset.bf.split(':'); if (k === 'reset') { bFilt.beds = 'any'; bFilt.avail = false; bFilt.max = 'any'; } else if (k === 'avail') bFilt.avail = !bFilt.avail; else if (k === 'more') bFilt.more = !bFilt.more; else bFilt[k] = v; render(); return; }
+  if (e.target.closest('[data-bnone]')) { const g = reviewQueue().filter((x) => !reviewSkip.has(x.key))[0]; if (g) { const base = reviewAns[BEDKEY] || guessOf(g.lead.id, BEDKEY)?.value || { shown: false, rooms: [] }; reviewAns[BEDKEY] = { ...base, shown: !base.shown, rooms: base.rooms || [] }; render(); } return; }
   const rt = e.target.closest('[data-rtab]');
   if (rt) { reviewTab = rt.dataset.rtab; store.set('reviewTab', reviewTab); render(); return; }
   if (e.target.closest('#undo')) { undoSave(); return; }
@@ -1349,7 +1368,9 @@ app.addEventListener('click', (e) => {
   if (e.target.id === 'more') { feedLimit += 20; render(); return; }
   if (e.target.id === 'markall') { store.set('seen', Date.now()); render(); }
 });
-app.addEventListener('change', (e) => { const cm = e.target.closest('[data-cmp]'); if (cm) { cmpWith = cm.value; store.set('compareWith', cmpWith); render(); requestAnimationFrame(() => document.getElementById('cmp')?.focus()); return; } const s = e.target.closest('[data-fsel]'); if (s) setFilt(s.dataset.fsel, s.value); const bs = e.target.closest('[data-bsel]'); if (bs) { bFilt[bs.dataset.bsel] = bs.value; render(); } });
+app.addEventListener('change', (e) => { const bz = e.target.closest('[data-bsz]'); if (bz) { const g = reviewQueue().filter((x) => !reviewSkip.has(x.key))[0]; if (!g) return; const [i, k] = bz.dataset.bsz.split(':').map(Number); const n = parseFtIn(bz.value); if (n == null || n < 60 || n > 360) { bz.setAttribute('aria-invalid', 'true'); return; } const base = structuredClone(reviewAns[BEDKEY] || guessOf(g.lead.id, BEDKEY)?.value || { shown: true, rooms: [] }); base.shown = true; base.rooms = base.rooms?.length ? base.rooms : [{ name: (g.lead.beds ?? 1) > 1 ? 'Bedroom 1' : 'Bedroom', in: [null, null] }]; const r = base.rooms[i]; r.in = [...(r.in || [null, null])]; r.in[k] = n; r.size = r.in.map((x) => x ? fmtFtIn(x).replace('′', "'").replace('″', '"') : '?').join(' × '); reviewAns[BEDKEY] = base;
+    // Update in place (no re-render), so a click on Save that caused this change still lands.
+    bz.removeAttribute('aria-invalid'); bz.value = fmtFtIn(n); const sv = document.getElementById('rsave'); if (sv && !same(base, guessOf(g.lead.id, BEDKEY)?.value)) sv.textContent = 'Save corrections'; return; } const cm = e.target.closest('[data-cmp]'); if (cm) { cmpWith = cm.value; store.set('compareWith', cmpWith); render(); requestAnimationFrame(() => document.getElementById('cmp')?.focus()); return; } const s = e.target.closest('[data-fsel]'); if (s) setFilt(s.dataset.fsel, s.value); const bs = e.target.closest('[data-bsel]'); if (bs) { bFilt[bs.dataset.bsel] = bs.value; render(); } });
 let lastPage = '';
 window.addEventListener('hashchange', () => { const p = location.hash.split('/')[1] || ''; render(); if (p !== lastPage || true) window.scrollTo(0, 0); lastPage = p; });
 document.addEventListener('keydown', (e) => {

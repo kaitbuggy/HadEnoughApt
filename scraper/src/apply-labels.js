@@ -21,7 +21,8 @@ async function main() {
   try {
     await client.query('begin');
     await client.query(`insert into attribute_defs (key, label, applies_to, value_type)
-      values ('has_tub', 'Bathtub', 'floor_plan', 'boolean'), ('kitchen_island', 'Kitchen island', 'floor_plan', 'boolean')
+      values ('has_tub', 'Bathtub', 'floor_plan', 'boolean'), ('kitchen_island', 'Kitchen island', 'floor_plan', 'boolean'),
+             ('bedroom_sizes', 'Bedroom sizes', 'floor_plan', 'text')
       on conflict (key) do nothing`);
     for (const p of plans) {
       const { rows } = await client.query(
@@ -34,6 +35,7 @@ async function main() {
         ['kitchen_island', p.kitchen_island, p.kitchen_confidence],
         ['walk_in_shower', p.walk_in_shower, p.bath_confidence],
         ['has_tub', p.has_tub, p.bath_confidence],
+        ['bedroom_sizes', p.bedrooms, p.bedrooms_confidence],
       ];
       for (const [key, value, conf] of values) {
         if (value === null || value === undefined) continue;
@@ -41,7 +43,7 @@ async function main() {
           `insert into labels (attribute_key, floor_plan_id, value, source, model_name, confidence, evidence, status)
            select $1, $2, $3::jsonb, 'model', $4, $5, $6, 'pending'
            where not exists (select 1 from labels where attribute_key = $1 and floor_plan_id = $2)`,
-          [key, id, JSON.stringify(value), by, conf, p.note]);
+          [key, id, JSON.stringify(value), by, conf, key === 'bedroom_sizes' ? (p.bedrooms_note ?? null) : p.note]);
         added += r.rowCount;
       }
     }
